@@ -40,7 +40,7 @@ class CollapsibleSection(QWidget):
 class TaskItem(QWidget):
     clicked = pyqtSignal(dict)
     
-    def __init__(self, task, credentials, refresh_callback):
+    def __init__(self, task, credentials, refresh_callback, is_subtask=False):
         super().__init__()
         self.task = task
         self.credentials = credentials
@@ -49,7 +49,13 @@ class TaskItem(QWidget):
         self.uncomplete_worker = None
         
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        
+        # Add indentation for subtasks
+        if is_subtask:
+            layout.setContentsMargins(24, 8, 8, 8)  # Extra left margin for subtasks
+        else:
+            layout.setContentsMargins(8, 8, 8, 8)
+            
         layout.setSpacing(8)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         

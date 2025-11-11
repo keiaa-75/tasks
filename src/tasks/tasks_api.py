@@ -46,6 +46,7 @@ def fetch_tasks(credentials, tasklist_id=None):
                             "title": task.get("title", "No Title"),
                             "due": task.get("due", "No Due Date"),
                             "status": task.get("status", "needsAction"),
+                            "parent": task.get("parent"),
                         }
                     )
                 

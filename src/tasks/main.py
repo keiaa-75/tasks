@@ -311,10 +311,7 @@ class MainWindow(QMainWindow):
                 no_incomplete.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.incomplete_layout.addWidget(no_incomplete)
             else:
-                for task in incomplete_tasks:
-                    task_item = TaskItem(task, self.credentials, self.refresh_tasks)
-                    task_item.clicked.connect(self.show_edit_dialog)
-                    self.incomplete_layout.addWidget(task_item)
+                self.add_tasks_hierarchically(incomplete_tasks, self.incomplete_layout)
             
             # Add completed tasks to second tab
             if not completed_tasks:
@@ -322,14 +319,38 @@ class MainWindow(QMainWindow):
                 no_completed.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.completed_layout.addWidget(no_completed)
             else:
-                for task in completed_tasks:
-                    task_item = TaskItem(task, self.credentials, self.refresh_tasks)
-                    task_item.clicked.connect(self.show_edit_dialog)
-                    self.completed_layout.addWidget(task_item)
+                self.add_tasks_hierarchically(completed_tasks, self.completed_layout)
             
             # Update tab titles with counts
             self.tab_widget.setTabText(0, f"Tasks ({len(incomplete_tasks)})")
             self.tab_widget.setTabText(1, f"Completed ({len(completed_tasks)})")
+    
+    def add_tasks_hierarchically(self, tasks, layout):
+        # Separate parent tasks and subtasks
+        parent_tasks = [t for t in tasks if not t.get("parent")]
+        subtasks = [t for t in tasks if t.get("parent")]
+        
+        # Create a map of parent_id -> list of subtasks
+        subtask_map = {}
+        for subtask in subtasks:
+            parent_id = subtask["parent"]
+            if parent_id not in subtask_map:
+                subtask_map[parent_id] = []
+            subtask_map[parent_id].append(subtask)
+        
+        # Add parent tasks and their subtasks
+        for parent_task in parent_tasks:
+            # Add parent task
+            task_item = TaskItem(parent_task, self.credentials, self.refresh_tasks, is_subtask=False)
+            task_item.clicked.connect(self.show_edit_dialog)
+            layout.addWidget(task_item)
+            
+            # Add subtasks if any
+            if parent_task["id"] in subtask_map:
+                for subtask in subtask_map[parent_task["id"]]:
+                    subtask_item = TaskItem(subtask, self.credentials, self.refresh_tasks, is_subtask=True)
+                    subtask_item.clicked.connect(self.show_edit_dialog)
+                    layout.addWidget(subtask_item)
     
     def toggle_visibility(self):
         self.hide() if self.isVisible() else self.show()
