@@ -183,6 +183,9 @@ class MainWindow(QMainWindow):
     def on_tasklist_changed(self, index):
         if index >= 0:
             self.selected_tasklist_id = self.tasklist_combo.itemData(index)
+            # Reset tab counts when switching lists
+            self.tab_widget.setTabText(0, "Tasks")
+            self.tab_widget.setTabText(1, "Completed")
             self.refresh_tasks()
     
     def show_create_list_dialog(self):
@@ -264,9 +267,12 @@ class MainWindow(QMainWindow):
         self.hide_loading_indicator()
         self.tasklist_create_worker.deleteLater()
         self.tasklist_create_worker = None
+        # Clear tab counts immediately for new empty list
+        self.tab_widget.setTabText(0, "Tasks (0)")
+        self.tab_widget.setTabText(1, "Completed (0)")
         # Refresh the tasklist dropdown and select the new list
-        self.fetch_tasklists()
         self.selected_tasklist_id = new_tasklist_id
+        self.fetch_tasklists()
     
     def on_tasklist_create_error(self, error):
         self.show_error_indicator()
