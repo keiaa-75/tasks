@@ -1,10 +1,10 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QDialog, QMessageBox, QComboBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QDialog, QMessageBox, QComboBox, QFrame
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
 from .workers import AuthWorker, TaskListFetchWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker, TaskUncompleteWorker
-from .widgets import TaskItem, TaskDialog
+from .widgets import TaskItem, TaskDialog, CollapsibleSection
 
 
 class MainWindow(QMainWindow):
@@ -30,6 +30,22 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
+        # Top bar (moved from bottom)
+        top_bar = QWidget()
+        top_layout = QHBoxLayout(top_bar)
+        top_layout.setContentsMargins(8, 8, 8, 8)
+        
+        self.tasklist_combo = QComboBox()
+        self.tasklist_combo.currentIndexChanged.connect(self.on_tasklist_changed)
+        top_layout.addWidget(self.tasklist_combo)
+        
+        add_button = QPushButton("+")
+        add_button.setFixedHeight(self.tasklist_combo.sizeHint().height())
+        add_button.clicked.connect(self.show_create_dialog)
+        top_layout.addWidget(add_button)
+        
+        layout.addWidget(top_bar)
+        
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -42,22 +58,6 @@ class MainWindow(QMainWindow):
         self.scroll_area.setWidget(self.content_widget)
         
         layout.addWidget(self.scroll_area)
-        
-        # Bottom bar
-        bottom_bar = QWidget()
-        bottom_layout = QHBoxLayout(bottom_bar)
-        bottom_layout.setContentsMargins(8, 8, 8, 8)
-        
-        self.tasklist_combo = QComboBox()
-        self.tasklist_combo.currentIndexChanged.connect(self.on_tasklist_changed)
-        bottom_layout.addWidget(self.tasklist_combo)
-        
-        add_button = QPushButton("+")
-        add_button.setFixedHeight(self.tasklist_combo.sizeHint().height())
-        add_button.clicked.connect(self.show_create_dialog)
-        bottom_layout.addWidget(add_button)
-        
-        layout.addWidget(bottom_bar)
         
         self.setCentralWidget(main_widget)
         
@@ -243,14 +243,26 @@ class MainWindow(QMainWindow):
             no_tasks.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.content_layout.addWidget(no_tasks)
         else:
-            # Sort tasks: incomplete first, then completed
+            # Separate incomplete and completed tasks
             incomplete_tasks = [t for t in tasks if t["status"] != "completed"]
             completed_tasks = [t for t in tasks if t["status"] == "completed"]
             
-            for task in incomplete_tasks + completed_tasks:
+            # Add incomplete tasks
+            for task in incomplete_tasks:
                 task_item = TaskItem(task, self.credentials, self.refresh_tasks)
                 task_item.clicked.connect(self.show_edit_dialog)
                 self.content_layout.addWidget(task_item)
+            
+            # Add completed tasks accordion if there are any
+            if completed_tasks:
+                completed_section = CollapsibleSection(f"Completed ({len(completed_tasks)})")
+                
+                for task in completed_tasks:
+                    task_item = TaskItem(task, self.credentials, self.refresh_tasks)
+                    task_item.clicked.connect(self.show_edit_dialog)
+                    completed_section.add_widget(task_item)
+                
+                self.content_layout.addWidget(completed_section)
     
     def toggle_visibility(self):
         self.hide() if self.isVisible() else self.show()

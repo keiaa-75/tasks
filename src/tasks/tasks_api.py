@@ -23,29 +23,44 @@ def fetch_tasks(credentials, tasklist_id=None):
         lists_to_fetch = [tl for tl in tasklists if tl["id"] == tasklist_id] if tasklist_id else tasklists
         
         for tasklist in lists_to_fetch:
-            # Fetch tasks from each task list
-            tasks_result = service.tasks().list(tasklist=tasklist["id"], showCompleted=True).execute()
-            tasks = tasks_result.get("items", [])
-            for task in tasks:
-                all_tasks.append(
-                    {
-                        "id": task.get("id"),
-                        "tasklist_id": tasklist["id"],
-                        "title": task.get("title", "No Title"),
-                        "due": task.get("due", "No Due Date"),
-                        "status": task.get("status", "needsAction"),
-                    }
-                )
+            # Fetch tasks from each task list with pagination
+            page_token = None
+            while True:
+                params = {"tasklist": tasklist["id"], "showCompleted": True, "maxResults": 100}
+                if page_token:
+                    params["pageToken"] = page_token
+                
+                tasks_result = service.tasks().list(**params).execute()
+                tasks = tasks_result.get("items", [])
+                
+                for task in tasks:
+                    all_tasks.append(
+                        {
+                            "id": task.get("id"),
+                            "tasklist_id": tasklist["id"],
+                            "title": task.get("title", "No Title"),
+                            "due": task.get("due", "No Due Date"),
+                            "status": task.get("status", "needsAction"),
+                        }
+                    )
+                
+                page_token = tasks_result.get("nextPageToken")
+                if not page_token:
+                    break
     return all_tasks
 
-def complete_task(credentials, tasklist_id, task_id, title):
+def complete_task(credentials, tasklist_id, task_id, title, due_date=None):
     service = build("tasks", "v1", credentials=credentials)
     task_body = {"id": task_id, "title": title, "status": "completed"}
+    if due_date:
+        task_body["due"] = due_date
     service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
 
-def uncomplete_task(credentials, tasklist_id, task_id, title):
+def uncomplete_task(credentials, tasklist_id, task_id, title, due_date=None):
     service = build("tasks", "v1", credentials=credentials)
     task_body = {"id": task_id, "title": title, "status": "needsAction"}
+    if due_date:
+        task_body["due"] = due_date
     service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
 
 def create_task(credentials, tasklist_id, title, due_date=None):

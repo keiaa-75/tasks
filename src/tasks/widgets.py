@@ -1,7 +1,40 @@
 from datetime import datetime
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QDialog, QLineEdit, QDialogButtonBox, QMessageBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QDialog, QLineEdit, QDialogButtonBox, QMessageBox, QFrame, QPushButton
 from PyQt6.QtCore import Qt, pyqtSignal
 from .workers import TaskCompleteWorker, TaskUncompleteWorker
+
+
+class CollapsibleSection(QWidget):
+    def __init__(self, title, parent=None):
+        super().__init__(parent)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Header
+        self.header = QPushButton(title)
+        self.header.setCheckable(True)
+        self.header.setChecked(False)
+        self.header.clicked.connect(self.toggle_content)
+        layout.addWidget(self.header)
+        
+        # Content area
+        self.content_area = QFrame()
+        self.content_area.setVisible(False)
+        self.content_layout = QVBoxLayout(self.content_area)
+        self.content_layout.setContentsMargins(4, 4, 4, 4)
+        self.content_layout.setSpacing(2)
+        layout.addWidget(self.content_area)
+    
+    def toggle_content(self):
+        self.content_area.setVisible(self.header.isChecked())
+    
+    def add_widget(self, widget):
+        self.content_layout.addWidget(widget)
+    
+    def set_title(self, title):
+        self.header.setText(title)
 
 
 class TaskItem(QWidget):
@@ -66,7 +99,7 @@ class TaskItem(QWidget):
             self.checkbox.setEnabled(False)
             
             self.complete_worker = TaskCompleteWorker(
-                self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"]
+                self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"], self.task.get("due")
             )
             self.complete_worker.finished.connect(self.on_complete_success)
             self.complete_worker.error.connect(self.on_complete_error)
@@ -75,7 +108,7 @@ class TaskItem(QWidget):
             self.checkbox.setEnabled(False)
             
             self.uncomplete_worker = TaskUncompleteWorker(
-                self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"]
+                self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"], self.task.get("due")
             )
             self.uncomplete_worker.finished.connect(self.on_uncomplete_success)
             self.uncomplete_worker.error.connect(self.on_uncomplete_error)
