@@ -128,7 +128,9 @@ class TaskListController:
         self.main_window.hide_loading_indicator()
         self.tasklist_delete_worker.deleteLater()
         self.tasklist_delete_worker = None
-        # Refresh the tasklist dropdown
+        # Clear selected list ID so it gets reset properly
+        self.main_window.selected_tasklist_id = None
+        # Refresh the tasklist dropdown which will trigger task refresh
         self.fetch_tasklists()
     
     def on_tasklist_delete_error(self, error):
