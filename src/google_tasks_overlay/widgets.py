@@ -87,12 +87,16 @@ class TaskItem(QWidget):
     
     def on_complete_success(self):
         self.refresh_callback()
+        if self.complete_worker:
+            self.complete_worker.deleteLater()
     
     def on_complete_error(self, error):
         print(f"Error completing task: {error}")
         self.checkbox.setChecked(False)
         self.checkbox.setEnabled(True)
         self.title_label.setStyleSheet("color: white; font-size: 14px;")
+        if self.complete_worker:
+            self.complete_worker.deleteLater()
 
 
 class TaskDialog(QDialog):

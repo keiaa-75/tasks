@@ -14,7 +14,7 @@ class AuthWorker(QThread):
             self.error.emit(str(e))
 
 
-class TaskFetchWorker(QThread):
+class TaskListFetchWorker(QThread):
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
     
@@ -24,7 +24,24 @@ class TaskFetchWorker(QThread):
     
     def run(self):
         try:
-            tasks = tasks_api.fetch_tasks(self.credentials)
+            tasklists = tasks_api.fetch_tasklists(self.credentials)
+            self.finished.emit(tasklists)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+class TaskFetchWorker(QThread):
+    finished = pyqtSignal(list)
+    error = pyqtSignal(str)
+    
+    def __init__(self, credentials, tasklist_id=None):
+        super().__init__()
+        self.credentials = credentials
+        self.tasklist_id = tasklist_id
+    
+    def run(self):
+        try:
+            tasks = tasks_api.fetch_tasks(self.credentials, self.tasklist_id)
             self.finished.emit(tasks)
         except Exception as e:
             self.error.emit(str(e))
@@ -53,15 +70,16 @@ class TaskCreateWorker(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
     
-    def __init__(self, credentials, title, due_date):
+    def __init__(self, credentials, tasklist_id, title, due_date):
         super().__init__()
         self.credentials = credentials
+        self.tasklist_id = tasklist_id
         self.title = title
         self.due_date = due_date
     
     def run(self):
         try:
-            tasks_api.create_task(self.credentials, self.title, self.due_date)
+            tasks_api.create_task(self.credentials, self.tasklist_id, self.title, self.due_date)
             self.finished.emit()
         except Exception as e:
             self.error.emit(str(e))

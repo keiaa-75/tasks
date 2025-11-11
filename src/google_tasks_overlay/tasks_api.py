@@ -2,7 +2,14 @@ from googleapiclient.discovery import build
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-def fetch_tasks(credentials):
+def fetch_tasklists(credentials):
+    """Fetches task lists from the Google Tasks API."""
+    service = build("tasks", "v1", credentials=credentials)
+    tasklists_result = service.tasklists().list().execute()
+    return tasklists_result.get("items", [])
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+def fetch_tasks(credentials, tasklist_id=None):
     """Fetches tasks from the Google Tasks API with exponential backoff."""
     service = build("tasks", "v1", credentials=credentials)
 
@@ -12,7 +19,10 @@ def fetch_tasks(credentials):
 
     all_tasks = []
     if tasklists:
-        for tasklist in tasklists:
+        # Filter by specific list if provided
+        lists_to_fetch = [tl for tl in tasklists if tl["id"] == tasklist_id] if tasklist_id else tasklists
+        
+        for tasklist in lists_to_fetch:
             # Fetch tasks from each task list
             tasks_result = service.tasks().list(tasklist=tasklist["id"], showCompleted=True).execute()
             tasks = tasks_result.get("items", [])
@@ -34,17 +44,9 @@ def complete_task(credentials, tasklist_id, task_id, title):
     task_body = {"id": task_id, "title": title, "status": "completed"}
     service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
 
-def create_task(credentials, title, due_date=None):
-    """Creates a new task in the default task list."""
+def create_task(credentials, tasklist_id, title, due_date=None):
+    """Creates a new task in the specified task list."""
     service = build("tasks", "v1", credentials=credentials)
-    
-    # Get default task list
-    tasklists_result = service.tasklists().list().execute()
-    tasklists = tasklists_result.get("items", [])
-    if not tasklists:
-        raise Exception("No task lists found")
-    
-    tasklist_id = tasklists[0]["id"]
     
     task_body = {"title": title}
     if due_date:
