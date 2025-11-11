@@ -21,7 +21,9 @@ A simple, PyQt-based Google Tasks client for Linux.
    - Download the JSON file
    - Go to "Audience" > "Test Users"
    - Add your preferred Google Account
-5. Rename the downloaded file to `credentials.json` and place it in `src/tasks/`
+5. Place the credentials file:
+   - Rename the downloaded file to `credentials.json`
+   - Place it in `~/.config/tasks/credentials.json`
 
 ### 2. Installation
 

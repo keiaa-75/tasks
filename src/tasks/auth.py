@@ -11,7 +11,8 @@ SCOPES = ["https://www.googleapis.com/auth/tasks"]
 
 def get_credentials_path() -> Path:
     """Get the path to the credentials.json file."""
-    return Path(__file__).parent / "credentials.json"
+    config_dir = Path.home() / ".config" / "tasks"
+    return config_dir / "credentials.json"
 
 
 def get_token_path() -> Path:
@@ -45,9 +46,12 @@ def get_credentials() -> Credentials:
         else:
             credentials_path = get_credentials_path()
             if not credentials_path.exists():
+                config_dir = Path.home() / ".config" / "tasks"
+                config_dir.mkdir(parents=True, exist_ok=True)
                 raise FileNotFoundError(
-                    f"Credentials file not found at {credentials_path}. "
-                    "Please place your credentials.json from Google Cloud Console there."
+                    f"Credentials file not found at {credentials_path}.\n"
+                    f"Please place your credentials.json file there.\n"
+                    f"Download it from Google Cloud Console (see README for instructions)."
                 )
 
             flow = InstalledAppFlow.from_client_secrets_file(
