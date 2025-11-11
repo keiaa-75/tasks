@@ -1,13 +1,14 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QDialog, QMessageBox, QComboBox, QFrame, QProgressBar, QTabWidget, QProgressBar
+from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QComboBox, QProgressBar, QTabWidget
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
 from .workers import AuthWorker
 from .services.task_service import TaskService
 from .services.tasklist_service import TaskListService
+from .controllers.task_controller import TaskController
+from .controllers.tasklist_controller import TaskListController
 from .widgets import TaskItem
-from .dialogs import TaskDialog
 
 
 class MainWindow(QMainWindow):
@@ -17,50 +18,58 @@ class MainWindow(QMainWindow):
         self.task_service = TaskService(credentials)
         self.tasklist_service = TaskListService(credentials)
         self.fetch_worker = None
-        self.create_worker = None
-        self.update_worker = None
-        self.delete_worker = None
-        self.uncomplete_worker = None
-        self.tasklist_fetch_worker = None
-        self.tasklist_create_worker = None
         self.selected_tasklist_id = None
         self.tasklists = []
         
+        self.setup_ui()
+        self.setup_controllers()
+        self.setup_timer()
+        
+        self.show_loading()
+        self.tasklist_controller.fetch_tasklists()
+    
+    def setup_ui(self):
         self.setWindowTitle("Google Tasks")
         self.setWindowIcon(QIcon.fromTheme("checkmark"))
         self.setFixedSize(300, 400)
         
         main_widget = QWidget()
-        
         layout = QVBoxLayout(main_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Top bar (moved from bottom)
+        self.create_top_bar(layout)
+        self.create_tab_widget(layout)
+        self.create_loading_indicator(layout)
+        
+        self.setCentralWidget(main_widget)
+    
+    def create_top_bar(self, layout):
         top_bar = QWidget()
         top_layout = QHBoxLayout(top_bar)
         top_layout.setContentsMargins(8, 8, 8, 8)
         
         add_button = QPushButton("New task")
-        add_button.clicked.connect(self.show_create_dialog)
         top_layout.addWidget(add_button)
         
         self.tasklist_combo = QComboBox()
-        self.tasklist_combo.currentIndexChanged.connect(self.on_tasklist_changed)
-        top_layout.addWidget(self.tasklist_combo, 1)  # Stretch factor to make it longer
+        top_layout.addWidget(self.tasklist_combo, 1)
         
         add_list_button = QPushButton("+")
         add_list_button.setToolTip("Add new list")
-        add_list_button.clicked.connect(self.show_create_list_dialog)
         top_layout.addWidget(add_list_button)
         
-        # Set button heights after combo box is created
+        # Set heights after combo is created
         add_button.setFixedHeight(self.tasklist_combo.sizeHint().height())
         add_list_button.setFixedSize(self.tasklist_combo.sizeHint().height(), self.tasklist_combo.sizeHint().height())
         
-        layout.addWidget(top_bar)
+        # Store references for controllers
+        self.add_button = add_button
+        self.add_list_button = add_list_button
         
-        # Tab widget for incomplete/completed tasks
+        layout.addWidget(top_bar)
+    
+    def create_tab_widget(self, layout):
         self.tab_widget = QTabWidget()
         
         # Incomplete tasks tab
@@ -91,23 +100,28 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.completed_scroll, "Completed")
         
         layout.addWidget(self.tab_widget)
-        
-        # Loading indicator at bottom (always visible)
+    
+    def create_loading_indicator(self, layout):
         self.loading_bar = QProgressBar()
         self.loading_bar.setMaximumHeight(8)
-        self.loading_bar.setRange(0, 100)  # Normal range when not loading
-        self.loading_bar.setValue(0)  # Empty when not loading
-        self.loading_bar.setTextVisible(False)  # Hide percentage text
+        self.loading_bar.setRange(0, 100)
+        self.loading_bar.setValue(0)
+        self.loading_bar.setTextVisible(False)
         layout.addWidget(self.loading_bar)
+    
+    def setup_controllers(self):
+        self.task_controller = TaskController(self.credentials, self)
+        self.tasklist_controller = TaskListController(self.credentials, self)
         
-        self.setCentralWidget(main_widget)
-        
+        # Connect UI events to controllers
+        self.add_button.clicked.connect(self.task_controller.show_create_dialog)
+        self.add_list_button.clicked.connect(self.tasklist_controller.show_create_list_dialog)
+        self.tasklist_combo.currentIndexChanged.connect(self.tasklist_controller.on_tasklist_changed)
+    
+    def setup_timer(self):
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.refresh_tasks)
         self.refresh_timer.start(300000)
-        
-        self.show_loading()
-        self.fetch_tasklists()
     
     def showEvent(self, event):
         super().showEvent(event)
@@ -118,21 +132,20 @@ class MainWindow(QMainWindow):
         self.move(screen.width() - self.width() - 20, screen.height() - self.height() - 20)
     
     def show_loading_indicator(self):
-        self.loading_bar.setStyleSheet("")  # Reset to default style
-        self.loading_bar.setRange(0, 0)  # Indeterminate (animated)
+        self.loading_bar.setStyleSheet("")
+        self.loading_bar.setRange(0, 0)
     
     def hide_loading_indicator(self):
-        self.loading_bar.setStyleSheet("")  # Reset to default style
-        self.loading_bar.setRange(0, 100)  # Normal range
-        self.loading_bar.setValue(0)  # Empty/gray appearance
+        self.loading_bar.setStyleSheet("")
+        self.loading_bar.setRange(0, 100)
+        self.loading_bar.setValue(0)
     
     def show_error_indicator(self):
         self.loading_bar.setStyleSheet("QProgressBar::chunk { background-color: red; }")
         self.loading_bar.setRange(0, 100)
-        self.loading_bar.setValue(100)  # Full red bar
+        self.loading_bar.setValue(100)
     
     def show_loading(self):
-        # Clear both tabs
         for i in reversed(range(self.incomplete_layout.count())):
             widget = self.incomplete_layout.itemAt(i).widget()
             if widget:
@@ -146,209 +159,6 @@ class MainWindow(QMainWindow):
         loading = QLabel("Loading...")
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.incomplete_layout.addWidget(loading)
-    
-    def fetch_tasklists(self):
-        if self.tasklist_fetch_worker and self.tasklist_fetch_worker.isRunning():
-            return
-        
-        self.tasklist_fetch_worker = self.tasklist_service.fetch_tasklists_worker()
-        self.tasklist_fetch_worker.finished.connect(self.on_tasklists_loaded)
-        self.tasklist_fetch_worker.error.connect(self.on_tasklists_error)
-        self.tasklist_fetch_worker.start()
-    
-    def on_tasklists_loaded(self, tasklists):
-        self.tasklists = tasklists
-        self.tasklist_combo.blockSignals(True)
-        self.tasklist_combo.clear()
-        
-        selected_index = 0
-        for i, tasklist in enumerate(tasklists):
-            self.tasklist_combo.addItem(tasklist["title"], tasklist["id"])
-            # If we have a selected_tasklist_id, find its index
-            if hasattr(self, 'selected_tasklist_id') and self.selected_tasklist_id == tasklist["id"]:
-                selected_index = i
-        
-        if tasklists:
-            if not hasattr(self, 'selected_tasklist_id') or not self.selected_tasklist_id:
-                self.selected_tasklist_id = tasklists[0]["id"]
-            self.tasklist_combo.setCurrentIndex(selected_index)
-        
-        self.tasklist_combo.blockSignals(False)
-        self.tasklist_fetch_worker.deleteLater()
-        self.tasklist_fetch_worker = None
-        self.refresh_tasks()
-    
-    def on_tasklists_error(self, error):
-        print(f"Error fetching task lists: {error}")
-        if self.tasklist_fetch_worker:
-            self.tasklist_fetch_worker.deleteLater()
-            self.tasklist_fetch_worker = None
-        self.refresh_tasks()
-    
-    def on_tasklist_changed(self, index):
-        if index >= 0:
-            self.selected_tasklist_id = self.tasklist_combo.itemData(index)
-            # Reset tab counts when switching lists
-            self.tab_widget.setTabText(0, "Tasks")
-            self.tab_widget.setTabText(1, "Completed")
-            self.refresh_tasks()
-    
-    def show_create_list_dialog(self):
-        from PyQt6.QtWidgets import QInputDialog
-        title, ok = QInputDialog.getText(self, "New List", "List name:")
-        if ok and title.strip():
-            self.create_tasklist(title.strip())
-    
-    def show_create_dialog(self):
-        dialog = TaskDialog(self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            title, due_date = dialog.get_values()
-            self.create_task(title, due_date)
-    
-    def show_edit_dialog(self, task):
-        is_subtask = bool(task.get("parent"))
-        dialog = TaskDialog(
-            self, 
-            title=task["title"], 
-            due_date=task["due"],
-            task_id=task["id"],
-            tasklist_id=task["tasklist_id"],
-            is_subtask=is_subtask
-        )
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            if dialog.is_delete():
-                self.delete_task(task["tasklist_id"], task["id"])
-            elif dialog.is_create_subtask():
-                self.show_subtask_dialog(task["id"])
-            else:
-                title, due_date = dialog.get_values()
-                self.update_task(task["tasklist_id"], task["id"], title, due_date)
-    
-    def show_subtask_dialog(self, parent_id):
-        dialog = TaskDialog(self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            title, due_date = dialog.get_values()
-            self.create_subtask(title, due_date, parent_id)
-    
-    def create_task(self, title, due_date):
-        if self.create_worker and self.create_worker.isRunning():
-            return
-        
-        if not self.selected_tasklist_id:
-            QMessageBox.warning(self, "Error", "No task list selected")
-            return
-        
-        try:
-            self.show_loading_indicator()
-            self.create_worker = self.task_service.create_task_worker(self.selected_tasklist_id, title, due_date)
-            self.create_worker.finished.connect(self.on_create_success)
-            self.create_worker.error.connect(self.on_create_error)
-            self.create_worker.start()
-        except ValueError as e:
-            QMessageBox.warning(self, "Validation Error", str(e))
-            self.hide_loading_indicator()
-    
-    def create_subtask(self, title, due_date, parent_id):
-        if self.create_worker and self.create_worker.isRunning():
-            return
-        
-        if not self.selected_tasklist_id:
-            QMessageBox.warning(self, "Error", "No task list selected")
-            return
-        
-        self.show_loading_indicator()
-        self.create_worker = TaskCreateWorker(self.credentials, self.selected_tasklist_id, title, due_date, parent_id)
-        self.create_worker.finished.connect(self.on_create_success)
-        self.create_worker.error.connect(self.on_create_error)
-        self.create_worker.start()
-    
-    def create_tasklist(self, title):
-        if self.tasklist_create_worker and self.tasklist_create_worker.isRunning():
-            return
-        
-        try:
-            self.show_loading_indicator()
-            self.tasklist_create_worker = self.tasklist_service.create_tasklist_worker(title)
-            self.tasklist_create_worker.finished.connect(self.on_tasklist_create_success)
-            self.tasklist_create_worker.error.connect(self.on_tasklist_create_error)
-            self.tasklist_create_worker.start()
-        except ValueError as e:
-            QMessageBox.warning(self, "Validation Error", str(e))
-            self.hide_loading_indicator()
-    
-    def on_tasklist_create_success(self, new_tasklist_id):
-        self.hide_loading_indicator()
-        self.tasklist_create_worker.deleteLater()
-        self.tasklist_create_worker = None
-        # Clear tab counts immediately for new empty list
-        self.tab_widget.setTabText(0, "Tasks (0)")
-        self.tab_widget.setTabText(1, "Completed (0)")
-        # Refresh the tasklist dropdown and select the new list
-        self.selected_tasklist_id = new_tasklist_id
-        self.fetch_tasklists()
-    
-    def on_tasklist_create_error(self, error):
-        self.show_error_indicator()
-        print(f"Error creating task list: {error}")
-        QMessageBox.critical(self, "Error", f"Failed to create task list: {error}")
-        if self.tasklist_create_worker:
-            self.tasklist_create_worker.deleteLater()
-            self.tasklist_create_worker = None
-    
-    def on_create_success(self):
-        self.hide_loading_indicator()
-        self.create_worker.deleteLater()
-        self.create_worker = None
-        self.refresh_tasks()
-    
-    def on_create_error(self, error):
-        self.show_error_indicator()
-        print(f"Error creating task: {error}")
-        QMessageBox.critical(self, "Error", f"Failed to create task: {error}")
-        if self.create_worker:
-            self.create_worker.deleteLater()
-            self.create_worker = None
-    
-    def update_task(self, tasklist_id, task_id, title, due_date):
-        if self.update_worker and self.update_worker.isRunning():
-            return
-        
-        self.update_worker = TaskUpdateWorker(self.credentials, tasklist_id, task_id, title, due_date)
-        self.update_worker.finished.connect(self.on_update_success)
-        self.update_worker.error.connect(self.on_update_error)
-        self.update_worker.start()
-    
-    def on_update_success(self):
-        self.update_worker.deleteLater()
-        self.update_worker = None
-    
-    def on_update_error(self, error):
-        print(f"Error updating task: {error}")
-        QMessageBox.critical(self, "Error", f"Failed to update task: {error}")
-        if self.update_worker:
-            self.update_worker.deleteLater()
-            self.update_worker = None
-    
-    def delete_task(self, tasklist_id, task_id):
-        if self.delete_worker and self.delete_worker.isRunning():
-            return
-        
-        self.delete_worker = TaskDeleteWorker(self.credentials, tasklist_id, task_id)
-        self.delete_worker.finished.connect(self.on_delete_success)
-        self.delete_worker.error.connect(self.on_delete_error)
-        self.delete_worker.start()
-    
-    def on_delete_success(self):
-        self.delete_worker.deleteLater()
-        self.delete_worker = None
-        self.refresh_tasks()
-    
-    def on_delete_error(self, error):
-        print(f"Error deleting task: {error}")
-        QMessageBox.critical(self, "Error", f"Failed to delete task: {error}")
-        if self.delete_worker:
-            self.delete_worker.deleteLater()
-            self.delete_worker = None
     
     def refresh_tasks(self):
         if self.fetch_worker and self.fetch_worker.isRunning():
@@ -414,21 +224,17 @@ class MainWindow(QMainWindow):
             self.tab_widget.setTabText(1, f"Completed ({len(completed_tasks)})")
     
     def add_tasks_hierarchically(self, tasks, layout):
-        # Use service to organize tasks
         parent_tasks, subtask_map = self.task_service.organize_tasks_hierarchically(tasks)
         
-        # Add parent tasks and their subtasks
         for parent_task in parent_tasks:
-            # Add parent task
             task_item = TaskItem(parent_task, self.credentials, self.refresh_tasks, is_subtask=False)
-            task_item.clicked.connect(self.show_edit_dialog)
+            task_item.clicked.connect(self.task_controller.show_edit_dialog)
             layout.addWidget(task_item)
             
-            # Add subtasks if any
             if parent_task["id"] in subtask_map:
                 for subtask in subtask_map[parent_task["id"]]:
                     subtask_item = TaskItem(subtask, self.credentials, self.refresh_tasks, is_subtask=True)
-                    subtask_item.clicked.connect(self.show_edit_dialog)
+                    subtask_item.clicked.connect(self.task_controller.show_edit_dialog)
                     layout.addWidget(subtask_item)
     
     def toggle_visibility(self):
