@@ -21,11 +21,9 @@ class MainWindow(QMainWindow):
         
         self.setWindowTitle("Google Tasks")
         self.setFixedSize(300, 400)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
         main_widget = QWidget()
-        main_widget.setStyleSheet("background-color: rgba(30, 30, 30, 0.7);")
+        main_widget.setStyleSheet("background-color: rgb(30, 30, 30);")
         
         layout = QVBoxLayout(main_widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -47,16 +45,16 @@ class MainWindow(QMainWindow):
         
         # Bottom bar
         bottom_bar = QWidget()
-        bottom_bar.setStyleSheet("background-color: rgba(40, 40, 40, 0.8);")
+        bottom_bar.setStyleSheet("background-color: rgb(40, 40, 40);")
         bottom_layout = QHBoxLayout(bottom_bar)
         bottom_layout.setContentsMargins(8, 8, 8, 8)
         
         self.tasklist_combo = QComboBox()
         self.tasklist_combo.setStyleSheet("""
             QComboBox {
-                background-color: rgba(60, 60, 60, 0.8);
+                background-color: rgb(60, 60, 60);
                 color: white;
-                border: 1px solid rgba(255, 255, 255, 0.3);
+                border: 1px solid rgb(100, 100, 100);
                 padding: 4px 8px;
                 min-width: 120px;
             }
@@ -64,9 +62,9 @@ class MainWindow(QMainWindow):
                 border: none;
             }
             QComboBox QAbstractItemView {
-                background-color: rgba(60, 60, 60, 0.95);
+                background-color: rgb(60, 60, 60);
                 color: white;
-                selection-background-color: rgba(100, 150, 255, 0.8);
+                selection-background-color: rgb(100, 150, 255);
             }
         """)
         self.tasklist_combo.currentIndexChanged.connect(self.on_tasklist_changed)
@@ -76,14 +74,14 @@ class MainWindow(QMainWindow):
         add_button.setFixedSize(32, 32)
         add_button.setStyleSheet("""
             QPushButton {
-                background-color: rgba(100, 150, 255, 0.8);
+                background-color: rgb(100, 150, 255);
                 color: white;
                 border: none;
                 font-size: 20px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: rgba(100, 150, 255, 1.0);
+                background-color: rgb(120, 170, 255);
             }
         """)
         add_button.clicked.connect(self.show_create_dialog)
@@ -115,7 +113,7 @@ class MainWindow(QMainWindow):
                 widget.setParent(None)
         
         loading = QLabel("Loading...")
-        loading.setStyleSheet("color: rgba(255, 255, 255, 0.6); font-size: 14px; padding: 20px;")
+        loading.setStyleSheet("color: rgb(180, 180, 180); font-size: 14px; padding: 20px;")
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.content_layout.addWidget(loading)
     
@@ -298,11 +296,9 @@ def main():
     loading_window = QMainWindow()
     loading_window.setWindowTitle("Google Tasks")
     loading_window.setFixedSize(300, 400)
-    loading_window.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-    loading_window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
     
     loading_widget = QWidget()
-    loading_widget.setStyleSheet("background-color: rgba(30, 30, 30, 0.7);")
+    loading_widget.setStyleSheet("background-color: rgb(30, 30, 30);")
     loading_layout = QVBoxLayout(loading_widget)
     loading_label = QLabel("Authenticating...")
     loading_label.setStyleSheet("color: white; font-size: 14px;")
