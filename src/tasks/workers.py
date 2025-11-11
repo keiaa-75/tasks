@@ -160,3 +160,20 @@ class TaskListCreateWorker(QThread):
             self.finished.emit(result["id"])
         except Exception as e:
             self.error.emit(str(e))
+
+
+class TaskListDeleteWorker(QThread):
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+    
+    def __init__(self, credentials, tasklist_id):
+        super().__init__()
+        self.credentials = credentials
+        self.tasklist_id = tasklist_id
+    
+    def run(self):
+        try:
+            tasks_api.delete_tasklist(self.credentials, self.tasklist_id)
+            self.finished.emit()
+        except Exception as e:
+            self.error.emit(str(e))

@@ -1,4 +1,4 @@
-from ..workers import TaskListFetchWorker, TaskListCreateWorker, TaskFetchWorker
+from ..workers import TaskListFetchWorker, TaskListCreateWorker, TaskFetchWorker, TaskListDeleteWorker
 
 
 class TaskListService:
@@ -12,6 +12,9 @@ class TaskListService:
         if not title.strip():
             raise ValueError("List name is required")
         return TaskListCreateWorker(self.credentials, title.strip())
+    
+    def delete_tasklist_worker(self, tasklist_id):
+        return TaskListDeleteWorker(self.credentials, tasklist_id)
     
     def fetch_tasks_worker(self, tasklist_id):
         return TaskFetchWorker(self.credentials, tasklist_id)

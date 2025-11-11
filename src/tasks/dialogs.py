@@ -41,9 +41,8 @@ class TaskDialog(QDialog):
                 pass
         layout.addWidget(self.date_input)
         
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         buttons.accepted.connect(self.validate_and_accept)
-        buttons.rejected.connect(self.reject)
         
         # Remove icon from OK button
         ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)

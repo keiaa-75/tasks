@@ -1,6 +1,8 @@
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QMessageBox, QLabel
+from PyQt6.QtCore import Qt
 from ..services.task_service import TaskService
 from ..dialogs import TaskDialog
+from ..widgets import TaskItem
 
 
 class TaskController:
@@ -11,6 +13,79 @@ class TaskController:
         self.create_worker = None
         self.update_worker = None
         self.delete_worker = None
+        self.fetch_worker = None
+    
+    def refresh_tasks(self):
+        if self.fetch_worker and self.fetch_worker.isRunning():
+            return
+        
+        self.main_window.show_loading_indicator()
+        self.fetch_worker = self.main_window.tasklist_service.fetch_tasks_worker(self.main_window.selected_tasklist_id)
+        self.fetch_worker.finished.connect(self.update_tasks)
+        self.fetch_worker.error.connect(self.on_fetch_error)
+        self.fetch_worker.start()
+    
+    def on_fetch_error(self, error):
+        self.main_window.show_error_indicator()
+        print(f"Error fetching tasks: {error}")
+        if self.fetch_worker:
+            self.fetch_worker.deleteLater()
+            self.fetch_worker = None
+        self.update_tasks([])
+    
+    def update_tasks(self, tasks):
+        self.main_window.hide_loading_indicator()
+        if self.fetch_worker:
+            self.fetch_worker.deleteLater()
+            self.fetch_worker = None
+        
+        # Clear both tabs
+        self.clear_task_layouts()
+        
+        if not tasks:
+            no_tasks = QLabel("No tasks")
+            no_tasks.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.main_window.incomplete_layout.addWidget(no_tasks)
+        else:
+            # Separate incomplete and completed tasks
+            incomplete_tasks, completed_tasks = self.task_service.separate_by_status(tasks)
+            
+            # Add tasks to tabs
+            self.populate_task_tab(incomplete_tasks, self.main_window.incomplete_layout, "No active tasks")
+            self.populate_task_tab(completed_tasks, self.main_window.completed_layout, "No completed tasks")
+            
+            # Update tab titles with counts
+            self.main_window.tab_widget.setTabText(0, f"Tasks ({len(incomplete_tasks)})")
+            self.main_window.tab_widget.setTabText(1, f"Completed ({len(completed_tasks)})")
+    
+    def clear_task_layouts(self):
+        for layout in [self.main_window.incomplete_layout, self.main_window.completed_layout]:
+            for i in reversed(range(layout.count())):
+                widget = layout.itemAt(i).widget()
+                if widget:
+                    widget.setParent(None)
+    
+    def populate_task_tab(self, tasks, layout, empty_message):
+        if not tasks:
+            no_tasks = QLabel(empty_message)
+            no_tasks.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(no_tasks)
+        else:
+            self.add_tasks_hierarchically(tasks, layout)
+    
+    def add_tasks_hierarchically(self, tasks, layout):
+        parent_tasks, subtask_map = self.task_service.organize_tasks_hierarchically(tasks)
+        
+        for parent_task in parent_tasks:
+            task_item = TaskItem(parent_task, self.credentials, self.refresh_tasks, is_subtask=False)
+            task_item.clicked.connect(self.show_edit_dialog)
+            layout.addWidget(task_item)
+            
+            if parent_task["id"] in subtask_map:
+                for subtask in subtask_map[parent_task["id"]]:
+                    subtask_item = TaskItem(subtask, self.credentials, self.refresh_tasks, is_subtask=True)
+                    subtask_item.clicked.connect(self.show_edit_dialog)
+                    layout.addWidget(subtask_item)
     
     def show_create_dialog(self):
         dialog = TaskDialog(self.main_window)
@@ -104,7 +179,7 @@ class TaskController:
         self.main_window.hide_loading_indicator()
         self.create_worker.deleteLater()
         self.create_worker = None
-        self.main_window.refresh_tasks()
+        self.refresh_tasks()
     
     def on_create_error(self, error):
         self.main_window.show_error_indicator()
@@ -117,6 +192,7 @@ class TaskController:
     def on_update_success(self):
         self.update_worker.deleteLater()
         self.update_worker = None
+        self.refresh_tasks()  # Add refresh for updates
     
     def on_update_error(self, error):
         print(f"Error updating task: {error}")
@@ -128,7 +204,7 @@ class TaskController:
     def on_delete_success(self):
         self.delete_worker.deleteLater()
         self.delete_worker = None
-        self.main_window.refresh_tasks()
+        self.refresh_tasks()
     
     def on_delete_error(self, error):
         print(f"Error deleting task: {error}")
@@ -136,3 +212,9 @@ class TaskController:
         if self.delete_worker:
             self.delete_worker.deleteLater()
             self.delete_worker = None
+    
+    def show_loading(self):
+        self.clear_task_layouts()
+        loading = QLabel("Loading...")
+        loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.main_window.incomplete_layout.addWidget(loading)

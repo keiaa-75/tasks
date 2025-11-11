@@ -9,6 +9,7 @@ class TaskListController:
         self.tasklist_service = TaskListService(credentials)
         self.tasklist_fetch_worker = None
         self.tasklist_create_worker = None
+        self.tasklist_delete_worker = None
     
     def show_create_list_dialog(self):
         title, ok = QInputDialog.getText(self.main_window, "New List", "List name:")
@@ -38,13 +39,42 @@ class TaskListController:
             QMessageBox.warning(self.main_window, "Validation Error", str(e))
             self.main_window.hide_loading_indicator()
     
+    def delete_current_list(self):
+        if not self.main_window.selected_tasklist_id:
+            QMessageBox.warning(self.main_window, "Error", "No task list selected")
+            return
+        
+        if len(self.main_window.tasklists) <= 1:
+            QMessageBox.warning(self.main_window, "Error", "Cannot delete the last task list")
+            return
+        
+        current_list_name = self.main_window.tasklist_combo.currentText()
+        reply = QMessageBox.question(
+            self.main_window, "Confirm Delete", 
+            f"Are you sure you want to delete the list '{current_list_name}'?\nAll tasks in this list will be permanently deleted.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.delete_tasklist(self.main_window.selected_tasklist_id)
+    
+    def delete_tasklist(self, tasklist_id):
+        if self.tasklist_delete_worker and self.tasklist_delete_worker.isRunning():
+            return
+        
+        self.main_window.show_loading_indicator()
+        self.tasklist_delete_worker = self.tasklist_service.delete_tasklist_worker(tasklist_id)
+        self.tasklist_delete_worker.finished.connect(self.on_tasklist_delete_success)
+        self.tasklist_delete_worker.error.connect(self.on_tasklist_delete_error)
+        self.tasklist_delete_worker.start()
+    
     def on_tasklist_changed(self, index):
         if index >= 0:
             self.main_window.selected_tasklist_id = self.main_window.tasklist_combo.itemData(index)
             # Reset tab counts when switching lists
             self.main_window.tab_widget.setTabText(0, "Tasks")
             self.main_window.tab_widget.setTabText(1, "Completed")
-            self.main_window.refresh_tasks()
+            self.main_window.task_controller.refresh_tasks()
     
     def on_tasklists_loaded(self, tasklists):
         self.main_window.tasklists = tasklists
@@ -66,14 +96,14 @@ class TaskListController:
         self.main_window.tasklist_combo.blockSignals(False)
         self.tasklist_fetch_worker.deleteLater()
         self.tasklist_fetch_worker = None
-        self.main_window.refresh_tasks()
+        self.main_window.task_controller.refresh_tasks()
     
     def on_tasklists_error(self, error):
         print(f"Error fetching task lists: {error}")
         if self.tasklist_fetch_worker:
             self.tasklist_fetch_worker.deleteLater()
             self.tasklist_fetch_worker = None
-        self.main_window.refresh_tasks()
+        self.main_window.task_controller.refresh_tasks()
     
     def on_tasklist_create_success(self, new_tasklist_id):
         self.main_window.hide_loading_indicator()
@@ -93,3 +123,18 @@ class TaskListController:
         if self.tasklist_create_worker:
             self.tasklist_create_worker.deleteLater()
             self.tasklist_create_worker = None
+    
+    def on_tasklist_delete_success(self):
+        self.main_window.hide_loading_indicator()
+        self.tasklist_delete_worker.deleteLater()
+        self.tasklist_delete_worker = None
+        # Refresh the tasklist dropdown
+        self.fetch_tasklists()
+    
+    def on_tasklist_delete_error(self, error):
+        self.main_window.show_error_indicator()
+        print(f"Error deleting task list: {error}")
+        QMessageBox.critical(self.main_window, "Error", f"Failed to delete task list: {error}")
+        if self.tasklist_delete_worker:
+            self.tasklist_delete_worker.deleteLater()
+            self.tasklist_delete_worker = None
