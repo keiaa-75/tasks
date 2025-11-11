@@ -82,7 +82,7 @@ class TaskItem(QWidget):
         if task["due"] and task["due"] != "No Due Date":
             try:
                 dt = datetime.fromisoformat(task["due"].replace('Z', '+00:00'))
-                formatted_date = dt.strftime("%m/%d/%y")
+                formatted_date = dt.strftime("%Y-%m-%d")
             except:
                 formatted_date = "Invalid date"
             
@@ -164,12 +164,14 @@ class TaskItem(QWidget):
 
 
 class TaskDialog(QDialog):
-    def __init__(self, parent=None, title="", due_date="", task_id=None, tasklist_id=None):
+    def __init__(self, parent=None, title="", due_date="", task_id=None, tasklist_id=None, is_subtask=False):
         super().__init__(parent)
         self.is_edit_mode = task_id is not None
         self.task_id = task_id
         self.tasklist_id = tasklist_id
+        self.is_subtask = is_subtask
         self.delete_requested = False
+        self.create_subtask_requested = False
         
         self.setWindowTitle("Edit Task" if self.is_edit_mode else "New Task")
         self.setModal(True)
@@ -199,15 +201,27 @@ class TaskDialog(QDialog):
                 pass
         layout.addWidget(self.date_input)
         
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         buttons.accepted.connect(self.validate_and_accept)
-        buttons.rejected.connect(self.reject)
+        
+        # Remove icon from OK button
+        ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        ok_button.setIcon(ok_button.style().standardIcon(ok_button.style().StandardPixmap.SP_CustomBase))
         
         if self.is_edit_mode:
+            # Add subtask button first (will appear between OK and Delete)
+            if not self.is_subtask:
+                subtask_button = buttons.addButton("Subtask", QDialogButtonBox.ButtonRole.ActionRole)
+                subtask_button.clicked.connect(self.create_subtask)
+            
             delete_button = buttons.addButton("Delete", QDialogButtonBox.ButtonRole.DestructiveRole)
             delete_button.clicked.connect(self.confirm_delete)
         
         layout.addWidget(buttons)
+    
+    def create_subtask(self):
+        self.create_subtask_requested = True
+        self.accept()
     
     def confirm_delete(self):
         reply = QMessageBox.question(
@@ -242,3 +256,6 @@ class TaskDialog(QDialog):
     
     def is_delete(self):
         return self.delete_requested
+    
+    def is_create_subtask(self):
+        return self.create_subtask_requested

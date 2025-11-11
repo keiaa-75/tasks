@@ -69,14 +69,16 @@ def uncomplete_task(credentials, tasklist_id, task_id, title, due_date=None):
         task_body["due"] = due_date
     service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
 
-def create_task(credentials, tasklist_id, title, due_date=None):
+def create_task(credentials, tasklist_id, title, due_date=None, parent_id=None):
     service = build("tasks", "v1", credentials=credentials)
     
     task_body = {"title": title}
     if due_date:
         task_body["due"] = f"{due_date}T00:00:00.000Z"
+    if parent_id:
+        task_body["parent"] = parent_id
     
-    service.tasks().insert(tasklist=tasklist_id, body=task_body).execute()
+    service.tasks().insert(tasklist=tasklist_id, body=task_body, parent=parent_id).execute()
 
 def update_task(credentials, tasklist_id, task_id, title, due_date=None):
     service = build("tasks", "v1", credentials=credentials)

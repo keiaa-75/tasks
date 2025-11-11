@@ -178,19 +178,29 @@ class MainWindow(QMainWindow):
             self.create_task(title, due_date)
     
     def show_edit_dialog(self, task):
+        is_subtask = bool(task.get("parent"))
         dialog = TaskDialog(
             self, 
             title=task["title"], 
             due_date=task["due"],
             task_id=task["id"],
-            tasklist_id=task["tasklist_id"]
+            tasklist_id=task["tasklist_id"],
+            is_subtask=is_subtask
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             if dialog.is_delete():
                 self.delete_task(task["tasklist_id"], task["id"])
+            elif dialog.is_create_subtask():
+                self.show_subtask_dialog(task["id"])
             else:
                 title, due_date = dialog.get_values()
                 self.update_task(task["tasklist_id"], task["id"], title, due_date)
+    
+    def show_subtask_dialog(self, parent_id):
+        dialog = TaskDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            title, due_date = dialog.get_values()
+            self.create_subtask(title, due_date, parent_id)
     
     def create_task(self, title, due_date):
         if self.create_worker and self.create_worker.isRunning():
@@ -202,6 +212,20 @@ class MainWindow(QMainWindow):
         
         self.show_loading_indicator()
         self.create_worker = TaskCreateWorker(self.credentials, self.selected_tasklist_id, title, due_date)
+        self.create_worker.finished.connect(self.on_create_success)
+        self.create_worker.error.connect(self.on_create_error)
+        self.create_worker.start()
+    
+    def create_subtask(self, title, due_date, parent_id):
+        if self.create_worker and self.create_worker.isRunning():
+            return
+        
+        if not self.selected_tasklist_id:
+            QMessageBox.warning(self, "Error", "No task list selected")
+            return
+        
+        self.show_loading_indicator()
+        self.create_worker = TaskCreateWorker(self.credentials, self.selected_tasklist_id, title, due_date, parent_id)
         self.create_worker.finished.connect(self.on_create_success)
         self.create_worker.error.connect(self.on_create_error)
         self.create_worker.start()

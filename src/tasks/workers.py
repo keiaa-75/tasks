@@ -91,16 +91,17 @@ class TaskCreateWorker(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
     
-    def __init__(self, credentials, tasklist_id, title, due_date):
+    def __init__(self, credentials, tasklist_id, title, due_date, parent_id=None):
         super().__init__()
         self.credentials = credentials
         self.tasklist_id = tasklist_id
         self.title = title
         self.due_date = due_date
+        self.parent_id = parent_id
     
     def run(self):
         try:
-            tasks_api.create_task(self.credentials, self.tasklist_id, self.title, self.due_date)
+            tasks_api.create_task(self.credentials, self.tasklist_id, self.title, self.due_date, self.parent_id)
             self.finished.emit()
         except Exception as e:
             self.error.emit(str(e))
