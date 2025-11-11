@@ -1,5 +1,5 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QDialog, QMessageBox, QComboBox, QFrame
+from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QDialog, QMessageBox, QComboBox, QFrame, QProgressBar, QProgressBar
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
@@ -46,6 +46,12 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(top_bar)
         
+        # Loading indicator
+        self.loading_bar = QProgressBar()
+        self.loading_bar.setRange(0, 0)  # Indeterminate progress
+        self.loading_bar.setVisible(False)
+        layout.addWidget(self.loading_bar)
+        
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -75,6 +81,12 @@ class MainWindow(QMainWindow):
     def position_bottom_right(self):
         screen = QApplication.primaryScreen().availableGeometry()
         self.move(screen.width() - self.width() - 20, screen.height() - self.height() - 20)
+    
+    def show_loading_indicator(self):
+        self.loading_bar.setVisible(True)
+    
+    def hide_loading_indicator(self):
+        self.loading_bar.setVisible(False)
     
     def show_loading(self):
         for i in reversed(range(self.content_layout.count())):
@@ -153,17 +165,20 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "No task list selected")
             return
         
+        self.show_loading_indicator()
         self.create_worker = TaskCreateWorker(self.credentials, self.selected_tasklist_id, title, due_date)
         self.create_worker.finished.connect(self.on_create_success)
         self.create_worker.error.connect(self.on_create_error)
         self.create_worker.start()
     
     def on_create_success(self):
+        self.hide_loading_indicator()
         self.create_worker.deleteLater()
         self.create_worker = None
         self.refresh_tasks()
     
     def on_create_error(self, error):
+        self.hide_loading_indicator()
         print(f"Error creating task: {error}")
         QMessageBox.critical(self, "Error", f"Failed to create task: {error}")
         if self.create_worker:
@@ -215,12 +230,14 @@ class MainWindow(QMainWindow):
         if self.fetch_worker and self.fetch_worker.isRunning():
             return
         
+        self.show_loading_indicator()
         self.fetch_worker = TaskFetchWorker(self.credentials, self.selected_tasklist_id)
         self.fetch_worker.finished.connect(self.update_tasks)
         self.fetch_worker.error.connect(self.on_fetch_error)
         self.fetch_worker.start()
     
     def on_fetch_error(self, error):
+        self.hide_loading_indicator()
         print(f"Error fetching tasks: {error}")
         if self.fetch_worker:
             self.fetch_worker.deleteLater()
@@ -228,6 +245,7 @@ class MainWindow(QMainWindow):
         self.update_tasks([])
     
     def update_tasks(self, tasks):
+        self.hide_loading_indicator()
         if self.fetch_worker:
             self.fetch_worker.deleteLater()
             self.fetch_worker = None

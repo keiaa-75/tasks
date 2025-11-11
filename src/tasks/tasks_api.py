@@ -26,7 +26,12 @@ def fetch_tasks(credentials, tasklist_id=None):
             # Fetch tasks from each task list with pagination
             page_token = None
             while True:
-                params = {"tasklist": tasklist["id"], "showCompleted": True, "maxResults": 100}
+                params = {
+                    "tasklist": tasklist["id"], 
+                    "showCompleted": True,
+                    "showHidden": True,
+                    "maxResults": 100
+                }
                 if page_token:
                     params["pageToken"] = page_token
                 
