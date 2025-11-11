@@ -43,6 +43,11 @@ def complete_task(credentials, tasklist_id, task_id, title):
     task_body = {"id": task_id, "title": title, "status": "completed"}
     service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
 
+def uncomplete_task(credentials, tasklist_id, task_id, title):
+    service = build("tasks", "v1", credentials=credentials)
+    task_body = {"id": task_id, "title": title, "status": "needsAction"}
+    service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
+
 def create_task(credentials, tasklist_id, title, due_date=None):
     service = build("tasks", "v1", credentials=credentials)
     

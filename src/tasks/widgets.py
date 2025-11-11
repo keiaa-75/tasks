@@ -1,7 +1,7 @@
 from datetime import datetime
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QDialog, QLineEdit, QDialogButtonBox, QMessageBox
 from PyQt6.QtCore import Qt, pyqtSignal
-from .workers import TaskCompleteWorker
+from .workers import TaskCompleteWorker, TaskUncompleteWorker
 
 
 class TaskItem(QWidget):
@@ -13,6 +13,7 @@ class TaskItem(QWidget):
         self.credentials = credentials
         self.refresh_callback = refresh_callback
         self.complete_worker = None
+        self.uncomplete_worker = None
         
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -70,6 +71,15 @@ class TaskItem(QWidget):
             self.complete_worker.finished.connect(self.on_complete_success)
             self.complete_worker.error.connect(self.on_complete_error)
             self.complete_worker.start()
+        elif state == Qt.CheckState.Unchecked.value and self.task["status"] == "completed":
+            self.checkbox.setEnabled(False)
+            
+            self.uncomplete_worker = TaskUncompleteWorker(
+                self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"]
+            )
+            self.uncomplete_worker.finished.connect(self.on_uncomplete_success)
+            self.uncomplete_worker.error.connect(self.on_uncomplete_error)
+            self.uncomplete_worker.start()
     
     def on_complete_success(self):
         self.refresh_callback()
@@ -82,6 +92,18 @@ class TaskItem(QWidget):
         self.checkbox.setEnabled(True)
         if self.complete_worker:
             self.complete_worker.deleteLater()
+    
+    def on_uncomplete_success(self):
+        self.refresh_callback()
+        if self.uncomplete_worker:
+            self.uncomplete_worker.deleteLater()
+    
+    def on_uncomplete_error(self, error):
+        print(f"Error uncompleting task: {error}")
+        self.checkbox.setChecked(True)
+        self.checkbox.setEnabled(True)
+        if self.uncomplete_worker:
+            self.uncomplete_worker.deleteLater()
 
 
 class TaskDialog(QDialog):

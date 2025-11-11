@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVB
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
-from .workers import AuthWorker, TaskListFetchWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker
+from .workers import AuthWorker, TaskListFetchWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker, TaskUncompleteWorker
 from .widgets import TaskItem, TaskDialog
 
 
@@ -15,11 +15,13 @@ class MainWindow(QMainWindow):
         self.create_worker = None
         self.update_worker = None
         self.delete_worker = None
+        self.uncomplete_worker = None
         self.tasklist_fetch_worker = None
         self.selected_tasklist_id = None
         self.tasklists = []
         
         self.setWindowTitle("Google Tasks")
+        self.setWindowIcon(QIcon.fromTheme("checkmark"))
         self.setFixedSize(300, 400)
         
         main_widget = QWidget()
@@ -275,7 +277,7 @@ def main():
     loading_window.show()
 
     main_window = None
-    tray_icon = QSystemTrayIcon(QIcon.fromTheme("application-x-executable"), app)
+    tray_icon = QSystemTrayIcon(QIcon.fromTheme("checkmark"), app)
     
     def on_auth_success(credentials):
         nonlocal main_window

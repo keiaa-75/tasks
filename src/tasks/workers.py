@@ -66,6 +66,25 @@ class TaskCompleteWorker(QThread):
             self.error.emit(str(e))
 
 
+class TaskUncompleteWorker(QThread):
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+    
+    def __init__(self, credentials, tasklist_id, task_id, title):
+        super().__init__()
+        self.credentials = credentials
+        self.tasklist_id = tasklist_id
+        self.task_id = task_id
+        self.title = title
+    
+    def run(self):
+        try:
+            tasks_api.uncomplete_task(self.credentials, self.tasklist_id, self.task_id, self.title)
+            self.finished.emit()
+        except Exception as e:
+            self.error.emit(str(e))
+
+
 class TaskCreateWorker(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
