@@ -4,7 +4,8 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
 from .workers import AuthWorker, TaskListFetchWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker, TaskUncompleteWorker, TaskListCreateWorker
-from .widgets import TaskItem, TaskDialog
+from .widgets import TaskItem
+from .dialogs import TaskDialog
 
 
 class MainWindow(QMainWindow):
