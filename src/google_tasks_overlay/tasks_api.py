@@ -51,3 +51,15 @@ def create_task(credentials, title, due_date=None):
         task_body["due"] = f"{due_date}T00:00:00.000Z"
     
     service.tasks().insert(tasklist=tasklist_id, body=task_body).execute()
+
+def update_task(credentials, tasklist_id, task_id, title, due_date=None):
+    """Updates an existing task."""
+    service = build("tasks", "v1", credentials=credentials)
+    
+    task_body = {"id": task_id, "title": title}
+    if due_date:
+        task_body["due"] = f"{due_date}T00:00:00.000Z"
+    else:
+        task_body["due"] = None
+    
+    service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()

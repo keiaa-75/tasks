@@ -1,10 +1,12 @@
 from datetime import datetime
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QDialog, QLineEdit, QDialogButtonBox, QMessageBox
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from .workers import TaskCompleteWorker
 
 
 class TaskItem(QWidget):
+    clicked = pyqtSignal(dict)
+    
     def __init__(self, task, credentials, refresh_callback):
         super().__init__()
         self.task = task
@@ -62,6 +64,14 @@ class TaskItem(QWidget):
         layout.addLayout(content_layout, 1)
         
         self.setStyleSheet("TaskItem { background-color: rgba(255, 255, 255, 0.1); margin: 2px; }")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+    
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            # Check if click is not on checkbox
+            if not self.checkbox.geometry().contains(event.pos()):
+                self.clicked.emit(self.task)
+        super().mousePressEvent(event)
     
     def on_checkbox_changed(self, state):
         if state == Qt.CheckState.Checked.value and self.task["status"] != "completed":
@@ -85,10 +95,10 @@ class TaskItem(QWidget):
         self.title_label.setStyleSheet("color: white; font-size: 14px;")
 
 
-class CreateTaskDialog(QDialog):
-    def __init__(self, parent=None):
+class TaskDialog(QDialog):
+    def __init__(self, parent=None, title="", due_date=""):
         super().__init__(parent)
-        self.setWindowTitle("New Task")
+        self.setWindowTitle("Edit Task" if title else "New Task")
         self.setModal(True)
         self.setFixedWidth(280)
         
@@ -100,13 +110,20 @@ class CreateTaskDialog(QDialog):
         
         self.title_input = QLineEdit()
         self.title_input.setPlaceholderText("Task title")
+        self.title_input.setText(title)
         layout.addWidget(self.title_input)
         
         date_label = QLabel("Due Date (YYYY-MM-DD):")
         layout.addWidget(date_label)
         
         self.date_input = QLineEdit()
-        self.date_input.setPlaceholderText("Optional")
+        self.date_input.setPlaceholderText("Optional (clear to remove)")
+        if due_date and due_date != "No Due Date":
+            try:
+                dt = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                self.date_input.setText(dt.strftime("%Y-%m-%d"))
+            except:
+                pass
         layout.addWidget(self.date_input)
         
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)

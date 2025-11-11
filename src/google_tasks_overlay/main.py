@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVB
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
-from .workers import AuthWorker, TaskFetchWorker, TaskCreateWorker
-from .widgets import TaskItem, CreateTaskDialog
+from .workers import AuthWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker
+from .widgets import TaskItem, TaskDialog
 
 
 class MainWindow(QMainWindow):
@@ -13,6 +13,7 @@ class MainWindow(QMainWindow):
         self.credentials = credentials
         self.fetch_worker = None
         self.create_worker = None
+        self.update_worker = None
         
         self.setWindowTitle("Google Tasks")
         self.setFixedSize(300, 400)
@@ -94,10 +95,16 @@ class MainWindow(QMainWindow):
         self.content_layout.addWidget(loading)
     
     def show_create_dialog(self):
-        dialog = CreateTaskDialog(self)
+        dialog = TaskDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             title, due_date = dialog.get_values()
             self.create_task(title, due_date)
+    
+    def show_edit_dialog(self, task):
+        dialog = TaskDialog(self, title=task["title"], due_date=task["due"])
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            title, due_date = dialog.get_values()
+            self.update_task(task["tasklist_id"], task["id"], title, due_date)
     
     def create_task(self, title, due_date):
         if self.create_worker and self.create_worker.isRunning():
@@ -114,6 +121,22 @@ class MainWindow(QMainWindow):
     def on_create_error(self, error):
         print(f"Error creating task: {error}")
         QMessageBox.critical(self, "Error", f"Failed to create task: {error}")
+    
+    def update_task(self, tasklist_id, task_id, title, due_date):
+        if self.update_worker and self.update_worker.isRunning():
+            return
+        
+        self.update_worker = TaskUpdateWorker(self.credentials, tasklist_id, task_id, title, due_date)
+        self.update_worker.finished.connect(self.on_update_success)
+        self.update_worker.error.connect(self.on_update_error)
+        self.update_worker.start()
+    
+    def on_update_success(self):
+        self.refresh_tasks()
+    
+    def on_update_error(self, error):
+        print(f"Error updating task: {error}")
+        QMessageBox.critical(self, "Error", f"Failed to update task: {error}")
     
     def refresh_tasks(self):
         if self.fetch_worker and self.fetch_worker.isRunning():
@@ -146,6 +169,7 @@ class MainWindow(QMainWindow):
             
             for task in incomplete_tasks + completed_tasks:
                 task_item = TaskItem(task, self.credentials, self.refresh_tasks)
+                task_item.clicked.connect(self.show_edit_dialog)
                 self.content_layout.addWidget(task_item)
         
         self.content_layout.addStretch()
