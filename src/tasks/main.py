@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVB
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
-from .workers import AuthWorker, TaskListFetchWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker, TaskUncompleteWorker
+from .workers import AuthWorker, TaskListFetchWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker, TaskUncompleteWorker, TaskListCreateWorker
 from .widgets import TaskItem, TaskDialog
 
 
@@ -17,6 +17,7 @@ class MainWindow(QMainWindow):
         self.delete_worker = None
         self.uncomplete_worker = None
         self.tasklist_fetch_worker = None
+        self.tasklist_create_worker = None
         self.selected_tasklist_id = None
         self.tasklists = []
         
@@ -35,14 +36,22 @@ class MainWindow(QMainWindow):
         top_layout = QHBoxLayout(top_bar)
         top_layout.setContentsMargins(8, 8, 8, 8)
         
-        self.tasklist_combo = QComboBox()
-        self.tasklist_combo.currentIndexChanged.connect(self.on_tasklist_changed)
-        top_layout.addWidget(self.tasklist_combo)
-        
-        add_button = QPushButton("+")
-        add_button.setFixedHeight(self.tasklist_combo.sizeHint().height())
+        add_button = QPushButton("New task")
         add_button.clicked.connect(self.show_create_dialog)
         top_layout.addWidget(add_button)
+        
+        self.tasklist_combo = QComboBox()
+        self.tasklist_combo.currentIndexChanged.connect(self.on_tasklist_changed)
+        top_layout.addWidget(self.tasklist_combo, 1)  # Stretch factor to make it longer
+        
+        add_list_button = QPushButton("+")
+        add_list_button.setToolTip("Add new list")
+        add_list_button.clicked.connect(self.show_create_list_dialog)
+        top_layout.addWidget(add_list_button)
+        
+        # Set button heights after combo box is created
+        add_button.setFixedHeight(self.tasklist_combo.sizeHint().height())
+        add_list_button.setFixedSize(self.tasklist_combo.sizeHint().height(), self.tasklist_combo.sizeHint().height())
         
         layout.addWidget(top_bar)
         
@@ -147,12 +156,17 @@ class MainWindow(QMainWindow):
         self.tasklist_combo.blockSignals(True)
         self.tasklist_combo.clear()
         
-        for tasklist in tasklists:
+        selected_index = 0
+        for i, tasklist in enumerate(tasklists):
             self.tasklist_combo.addItem(tasklist["title"], tasklist["id"])
+            # If we have a selected_tasklist_id, find its index
+            if hasattr(self, 'selected_tasklist_id') and self.selected_tasklist_id == tasklist["id"]:
+                selected_index = i
         
         if tasklists:
-            self.selected_tasklist_id = tasklists[0]["id"]
-            self.tasklist_combo.setCurrentIndex(0)
+            if not hasattr(self, 'selected_tasklist_id') or not self.selected_tasklist_id:
+                self.selected_tasklist_id = tasklists[0]["id"]
+            self.tasklist_combo.setCurrentIndex(selected_index)
         
         self.tasklist_combo.blockSignals(False)
         self.tasklist_fetch_worker.deleteLater()
@@ -170,6 +184,12 @@ class MainWindow(QMainWindow):
         if index >= 0:
             self.selected_tasklist_id = self.tasklist_combo.itemData(index)
             self.refresh_tasks()
+    
+    def show_create_list_dialog(self):
+        from PyQt6.QtWidgets import QInputDialog
+        title, ok = QInputDialog.getText(self, "New List", "List name:")
+        if ok and title.strip():
+            self.create_tasklist(title.strip())
     
     def show_create_dialog(self):
         dialog = TaskDialog(self)
@@ -229,6 +249,32 @@ class MainWindow(QMainWindow):
         self.create_worker.finished.connect(self.on_create_success)
         self.create_worker.error.connect(self.on_create_error)
         self.create_worker.start()
+    
+    def create_tasklist(self, title):
+        if self.tasklist_create_worker and self.tasklist_create_worker.isRunning():
+            return
+        
+        self.show_loading_indicator()
+        self.tasklist_create_worker = TaskListCreateWorker(self.credentials, title)
+        self.tasklist_create_worker.finished.connect(self.on_tasklist_create_success)
+        self.tasklist_create_worker.error.connect(self.on_tasklist_create_error)
+        self.tasklist_create_worker.start()
+    
+    def on_tasklist_create_success(self, new_tasklist_id):
+        self.hide_loading_indicator()
+        self.tasklist_create_worker.deleteLater()
+        self.tasklist_create_worker = None
+        # Refresh the tasklist dropdown and select the new list
+        self.fetch_tasklists()
+        self.selected_tasklist_id = new_tasklist_id
+    
+    def on_tasklist_create_error(self, error):
+        self.show_error_indicator()
+        print(f"Error creating task list: {error}")
+        QMessageBox.critical(self, "Error", f"Failed to create task list: {error}")
+        if self.tasklist_create_worker:
+            self.tasklist_create_worker.deleteLater()
+            self.tasklist_create_worker = None
     
     def on_create_success(self):
         self.hide_loading_indicator()

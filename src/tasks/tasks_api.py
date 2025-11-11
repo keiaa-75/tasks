@@ -94,3 +94,9 @@ def update_task(credentials, tasklist_id, task_id, title, due_date=None):
 def delete_task(credentials, tasklist_id, task_id):
     service = build("tasks", "v1", credentials=credentials)
     service.tasks().delete(tasklist=tasklist_id, task=task_id).execute()
+
+def create_tasklist(credentials, title):
+    service = build("tasks", "v1", credentials=credentials)
+    tasklist_body = {"title": title}
+    result = service.tasklists().insert(body=tasklist_body).execute()
+    return result
