@@ -16,12 +16,14 @@ def get_credentials_path() -> Path:
 
 
 def get_token_path() -> Path:
-    """Get the path to the token.json file following XDG specs."""
-    xdg_data_home = os.environ.get("XDG_DATA_HOME")
-    if xdg_data_home:
-        data_home = Path(xdg_data_home)
+    if os.name == 'nt':
+        data_home = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
     else:
-        data_home = Path.home() / ".local" / "share"
+        xdg_data_home = os.environ.get("XDG_DATA_HOME")
+        if xdg_data_home:
+            data_home = Path(xdg_data_home)
+        else:
+            data_home = Path.home() / ".local" / "share"
 
     app_data_dir = data_home / "tasks"
     app_data_dir.mkdir(parents=True, exist_ok=True)

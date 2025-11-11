@@ -7,6 +7,7 @@ from .workers import AuthWorker
 from .services.tasklist_service import TaskListService
 from .controllers.task_controller import TaskController
 from .controllers.tasklist_controller import TaskListController
+from .resources import get_icon_path
 
 
 class MainWindow(QMainWindow):
@@ -27,7 +28,8 @@ class MainWindow(QMainWindow):
     
     def setup_ui(self):
         self.setWindowTitle("Google Tasks")
-        self.setWindowIcon(QIcon.fromTheme("checkmark"))
+        self.setWindowIcon(QIcon(str(get_icon_path())))
+            
         self.setFixedSize(300, 400)
         
         main_widget = QWidget()
@@ -155,11 +157,15 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
+    app.setApplicationName("Tasks")
+    app.setApplicationDisplayName("Google Tasks")
+    app.setOrganizationName("tasks")
     app.setQuitOnLastWindowClosed(False)
 
     # Show loading window immediately
     loading_window = QMainWindow()
     loading_window.setWindowTitle("Google Tasks")
+    loading_window.setWindowIcon(QIcon(str(get_icon_path())))
     loading_window.setFixedSize(300, 400)
     
     loading_widget = QWidget()
@@ -174,7 +180,7 @@ def main():
     loading_window.show()
 
     main_window = None
-    tray_icon = QSystemTrayIcon(QIcon.fromTheme("checkmark"), app)
+    tray_icon = QSystemTrayIcon(QIcon(str(get_icon_path())), app)
     
     def on_auth_success(credentials):
         nonlocal main_window
