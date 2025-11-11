@@ -22,12 +22,5 @@ def main():
         "--clean"
     ])
 
-    exe_path = Path("dist/tasks")
-    if exe_path.exists():
-        os.chmod(exe_path, 0o755)
-        print(f"Made {exe_path} executable")
-    
-    print("Build complete! Executable is in dist/")
-
 if __name__ == "__main__":
     main()

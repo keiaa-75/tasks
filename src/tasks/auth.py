@@ -10,8 +10,17 @@ SCOPES = ["https://www.googleapis.com/auth/tasks"]
 
 
 def get_credentials_path() -> Path:
-    """Get the path to the credentials.json file."""
-    config_dir = Path.home() / ".config" / "tasks"
+    """Get the path to the credentials.json file following platform conventions."""
+    if os.name == 'nt':
+        config_dir = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "tasks"
+    else:
+        xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config_home:
+            config_dir = Path(xdg_config_home) / "tasks"
+        else:
+            config_dir = Path.home() / ".config" / "tasks"
+    
+    config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir / "credentials.json"
 
 
