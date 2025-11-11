@@ -3,7 +3,9 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVB
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
-from .workers import AuthWorker, TaskListFetchWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker, TaskUncompleteWorker, TaskListCreateWorker
+from .workers import AuthWorker
+from .services.task_service import TaskService
+from .services.tasklist_service import TaskListService
 from .widgets import TaskItem
 from .dialogs import TaskDialog
 
@@ -12,6 +14,8 @@ class MainWindow(QMainWindow):
     def __init__(self, credentials):
         super().__init__()
         self.credentials = credentials
+        self.task_service = TaskService(credentials)
+        self.tasklist_service = TaskListService(credentials)
         self.fetch_worker = None
         self.create_worker = None
         self.update_worker = None
@@ -147,7 +151,7 @@ class MainWindow(QMainWindow):
         if self.tasklist_fetch_worker and self.tasklist_fetch_worker.isRunning():
             return
         
-        self.tasklist_fetch_worker = TaskListFetchWorker(self.credentials)
+        self.tasklist_fetch_worker = self.tasklist_service.fetch_tasklists_worker()
         self.tasklist_fetch_worker.finished.connect(self.on_tasklists_loaded)
         self.tasklist_fetch_worker.error.connect(self.on_tasklists_error)
         self.tasklist_fetch_worker.start()
@@ -234,11 +238,15 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "No task list selected")
             return
         
-        self.show_loading_indicator()
-        self.create_worker = TaskCreateWorker(self.credentials, self.selected_tasklist_id, title, due_date)
-        self.create_worker.finished.connect(self.on_create_success)
-        self.create_worker.error.connect(self.on_create_error)
-        self.create_worker.start()
+        try:
+            self.show_loading_indicator()
+            self.create_worker = self.task_service.create_task_worker(self.selected_tasklist_id, title, due_date)
+            self.create_worker.finished.connect(self.on_create_success)
+            self.create_worker.error.connect(self.on_create_error)
+            self.create_worker.start()
+        except ValueError as e:
+            QMessageBox.warning(self, "Validation Error", str(e))
+            self.hide_loading_indicator()
     
     def create_subtask(self, title, due_date, parent_id):
         if self.create_worker and self.create_worker.isRunning():
@@ -258,11 +266,15 @@ class MainWindow(QMainWindow):
         if self.tasklist_create_worker and self.tasklist_create_worker.isRunning():
             return
         
-        self.show_loading_indicator()
-        self.tasklist_create_worker = TaskListCreateWorker(self.credentials, title)
-        self.tasklist_create_worker.finished.connect(self.on_tasklist_create_success)
-        self.tasklist_create_worker.error.connect(self.on_tasklist_create_error)
-        self.tasklist_create_worker.start()
+        try:
+            self.show_loading_indicator()
+            self.tasklist_create_worker = self.tasklist_service.create_tasklist_worker(title)
+            self.tasklist_create_worker.finished.connect(self.on_tasklist_create_success)
+            self.tasklist_create_worker.error.connect(self.on_tasklist_create_error)
+            self.tasklist_create_worker.start()
+        except ValueError as e:
+            QMessageBox.warning(self, "Validation Error", str(e))
+            self.hide_loading_indicator()
     
     def on_tasklist_create_success(self, new_tasklist_id):
         self.hide_loading_indicator()
@@ -343,7 +355,7 @@ class MainWindow(QMainWindow):
             return
         
         self.show_loading_indicator()
-        self.fetch_worker = TaskFetchWorker(self.credentials, self.selected_tasklist_id)
+        self.fetch_worker = self.tasklist_service.fetch_tasks_worker(self.selected_tasklist_id)
         self.fetch_worker.finished.connect(self.update_tasks)
         self.fetch_worker.error.connect(self.on_fetch_error)
         self.fetch_worker.start()
@@ -379,8 +391,7 @@ class MainWindow(QMainWindow):
             self.incomplete_layout.addWidget(no_tasks)
         else:
             # Separate incomplete and completed tasks
-            incomplete_tasks = [t for t in tasks if t["status"] != "completed"]
-            completed_tasks = [t for t in tasks if t["status"] == "completed"]
+            incomplete_tasks, completed_tasks = self.task_service.separate_by_status(tasks)
             
             # Add incomplete tasks to first tab
             if not incomplete_tasks:
@@ -403,17 +414,8 @@ class MainWindow(QMainWindow):
             self.tab_widget.setTabText(1, f"Completed ({len(completed_tasks)})")
     
     def add_tasks_hierarchically(self, tasks, layout):
-        # Separate parent tasks and subtasks
-        parent_tasks = [t for t in tasks if not t.get("parent")]
-        subtasks = [t for t in tasks if t.get("parent")]
-        
-        # Create a map of parent_id -> list of subtasks
-        subtask_map = {}
-        for subtask in subtasks:
-            parent_id = subtask["parent"]
-            if parent_id not in subtask_map:
-                subtask_map[parent_id] = []
-            subtask_map[parent_id].append(subtask)
+        # Use service to organize tasks
+        parent_tasks, subtask_map = self.task_service.organize_tasks_hierarchically(tasks)
         
         # Add parent tasks and their subtasks
         for parent_task in parent_tasks:

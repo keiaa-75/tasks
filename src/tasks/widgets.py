@@ -1,7 +1,7 @@
 from datetime import datetime
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QFrame, QPushButton
 from PyQt6.QtCore import Qt, pyqtSignal
-from .workers import TaskCompleteWorker, TaskUncompleteWorker
+from .services.task_service import TaskService
 
 
 class CollapsibleSection(QWidget):
@@ -45,6 +45,7 @@ class TaskItem(QWidget):
         self.task = task
         self.credentials = credentials
         self.refresh_callback = refresh_callback
+        self.task_service = TaskService(credentials)
         self.complete_worker = None
         self.uncomplete_worker = None
         
@@ -107,9 +108,7 @@ class TaskItem(QWidget):
             self.task["status"] = "completed"
             self.update_appearance()
             
-            self.complete_worker = TaskCompleteWorker(
-                self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"], self.task.get("due")
-            )
+            self.complete_worker = self.task_service.complete_task_worker(self.task)
             self.complete_worker.finished.connect(self.on_complete_success)
             self.complete_worker.error.connect(self.on_complete_error)
             self.complete_worker.start()
@@ -119,9 +118,7 @@ class TaskItem(QWidget):
             self.task["status"] = "needsAction"
             self.update_appearance()
             
-            self.uncomplete_worker = TaskUncompleteWorker(
-                self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"], self.task.get("due")
-            )
+            self.uncomplete_worker = self.task_service.uncomplete_task_worker(self.task)
             self.uncomplete_worker.finished.connect(self.on_uncomplete_success)
             self.uncomplete_worker.error.connect(self.on_uncomplete_error)
             self.uncomplete_worker.start()
