@@ -22,18 +22,6 @@ class TaskItem(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(task["status"] == "completed")
         self.checkbox.setFixedSize(16, 16)
-        self.checkbox.setStyleSheet("""
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-                background-color: rgb(50, 50, 50);
-                border: 1px solid rgb(150, 150, 150);
-            }
-            QCheckBox::indicator:checked {
-                background-color: rgb(100, 150, 255);
-                border: 1px solid rgb(100, 150, 255);
-            }
-        """)
         self.checkbox.stateChanged.connect(self.on_checkbox_changed)
         layout.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
         
@@ -42,10 +30,12 @@ class TaskItem(QWidget):
         content_layout.setContentsMargins(0, 0, 0, 0)
         
         is_completed = task["status"] == "completed"
-        title_style = "color: rgb(150, 150, 150); text-decoration: line-through;" if is_completed else "color: white;"
         
         self.title_label = QLabel(task["title"])
-        self.title_label.setStyleSheet(f"{title_style} font-size: 14px;")
+        if is_completed:
+            font = self.title_label.font()
+            font.setStrikeOut(True)
+            self.title_label.setFont(font)
         self.title_label.setWordWrap(True)
         content_layout.addWidget(self.title_label)
         
@@ -56,14 +46,11 @@ class TaskItem(QWidget):
             except:
                 formatted_date = "Invalid date"
             
-            due_style = "color: rgb(100, 100, 100);" if is_completed else "color: rgb(180, 180, 180);"
             due_label = QLabel(formatted_date)
-            due_label.setStyleSheet(f"{due_style} font-size: 12px;")
             content_layout.addWidget(due_label)
         
         layout.addLayout(content_layout, 1)
         
-        self.setStyleSheet("TaskItem { background-color: rgb(40, 40, 40); margin: 2px; }")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
     
     def mousePressEvent(self, event):
@@ -76,7 +63,6 @@ class TaskItem(QWidget):
     def on_checkbox_changed(self, state):
         if state == Qt.CheckState.Checked.value and self.task["status"] != "completed":
             self.checkbox.setEnabled(False)
-            self.title_label.setStyleSheet("color: rgb(120, 120, 120); font-size: 14px;")
             
             self.complete_worker = TaskCompleteWorker(
                 self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"]
@@ -94,7 +80,6 @@ class TaskItem(QWidget):
         print(f"Error completing task: {error}")
         self.checkbox.setChecked(False)
         self.checkbox.setEnabled(True)
-        self.title_label.setStyleSheet("color: white; font-size: 14px;")
         if self.complete_worker:
             self.complete_worker.deleteLater()
 

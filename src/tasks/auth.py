@@ -23,7 +23,7 @@ def get_token_path() -> Path:
     else:
         data_home = Path.home() / ".local" / "share"
 
-    app_data_dir = data_home / "google-tasks-overlay"
+    app_data_dir = data_home / "tasks"
     app_data_dir.mkdir(parents=True, exist_ok=True)
 
     return app_data_dir / "token.json"

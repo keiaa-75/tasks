@@ -23,7 +23,6 @@ class MainWindow(QMainWindow):
         self.setFixedSize(300, 400)
         
         main_widget = QWidget()
-        main_widget.setStyleSheet("background-color: rgb(30, 30, 30);")
         
         layout = QVBoxLayout(main_widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -32,7 +31,6 @@ class MainWindow(QMainWindow):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
         
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout(self.content_widget)
@@ -45,45 +43,15 @@ class MainWindow(QMainWindow):
         
         # Bottom bar
         bottom_bar = QWidget()
-        bottom_bar.setStyleSheet("background-color: rgb(40, 40, 40);")
         bottom_layout = QHBoxLayout(bottom_bar)
         bottom_layout.setContentsMargins(8, 8, 8, 8)
         
         self.tasklist_combo = QComboBox()
-        self.tasklist_combo.setStyleSheet("""
-            QComboBox {
-                background-color: rgb(60, 60, 60);
-                color: white;
-                border: 1px solid rgb(100, 100, 100);
-                padding: 4px 8px;
-                min-width: 120px;
-            }
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox QAbstractItemView {
-                background-color: rgb(60, 60, 60);
-                color: white;
-                selection-background-color: rgb(100, 150, 255);
-            }
-        """)
         self.tasklist_combo.currentIndexChanged.connect(self.on_tasklist_changed)
         bottom_layout.addWidget(self.tasklist_combo)
         
         add_button = QPushButton("+")
-        add_button.setFixedSize(32, 32)
-        add_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgb(100, 150, 255);
-                color: white;
-                border: none;
-                font-size: 20px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: rgb(120, 170, 255);
-            }
-        """)
+        add_button.setFixedHeight(self.tasklist_combo.sizeHint().height())
         add_button.clicked.connect(self.show_create_dialog)
         bottom_layout.addWidget(add_button)
         
@@ -113,7 +81,6 @@ class MainWindow(QMainWindow):
                 widget.setParent(None)
         
         loading = QLabel("Loading...")
-        loading.setStyleSheet("color: rgb(180, 180, 180); font-size: 14px; padding: 20px;")
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.content_layout.addWidget(loading)
     
@@ -271,7 +238,6 @@ class MainWindow(QMainWindow):
         
         if not tasks:
             no_tasks = QLabel("No tasks")
-            no_tasks.setStyleSheet("color: white; font-size: 14px; padding: 20px;")
             no_tasks.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.content_layout.addWidget(no_tasks)
         else:
@@ -298,10 +264,8 @@ def main():
     loading_window.setFixedSize(300, 400)
     
     loading_widget = QWidget()
-    loading_widget.setStyleSheet("background-color: rgb(30, 30, 30);")
     loading_layout = QVBoxLayout(loading_widget)
     loading_label = QLabel("Authenticating...")
-    loading_label.setStyleSheet("color: white; font-size: 14px;")
     loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     loading_layout.addWidget(loading_label)
     loading_window.setCentralWidget(loading_widget)
@@ -317,6 +281,7 @@ def main():
         nonlocal main_window
         loading_window.close()
         main_window = MainWindow(credentials)
+        main_window.show()
         tray_icon.activated.connect(lambda: main_window.toggle_visibility())
         
         menu = QMenu()
