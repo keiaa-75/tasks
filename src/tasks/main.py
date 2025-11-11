@@ -1,10 +1,10 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QDialog, QMessageBox, QComboBox, QFrame, QProgressBar, QProgressBar
+from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QDialog, QMessageBox, QComboBox, QFrame, QProgressBar, QTabWidget, QProgressBar
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
 from .workers import AuthWorker, TaskListFetchWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker, TaskUncompleteWorker
-from .widgets import TaskItem, TaskDialog, CollapsibleSection
+from .widgets import TaskItem, TaskDialog
 
 
 class MainWindow(QMainWindow):
@@ -46,24 +46,45 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(top_bar)
         
-        # Loading indicator
+        # Tab widget for incomplete/completed tasks
+        self.tab_widget = QTabWidget()
+        
+        # Incomplete tasks tab
+        self.incomplete_scroll = QScrollArea()
+        self.incomplete_scroll.setWidgetResizable(True)
+        self.incomplete_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        self.incomplete_widget = QWidget()
+        self.incomplete_layout = QVBoxLayout(self.incomplete_widget)
+        self.incomplete_layout.setSpacing(2)
+        self.incomplete_layout.setContentsMargins(4, 4, 4, 4)
+        self.incomplete_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.incomplete_scroll.setWidget(self.incomplete_widget)
+        
+        # Completed tasks tab
+        self.completed_scroll = QScrollArea()
+        self.completed_scroll.setWidgetResizable(True)
+        self.completed_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        self.completed_widget = QWidget()
+        self.completed_layout = QVBoxLayout(self.completed_widget)
+        self.completed_layout.setSpacing(2)
+        self.completed_layout.setContentsMargins(4, 4, 4, 4)
+        self.completed_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.completed_scroll.setWidget(self.completed_widget)
+        
+        self.tab_widget.addTab(self.incomplete_scroll, "Tasks")
+        self.tab_widget.addTab(self.completed_scroll, "Completed")
+        
+        layout.addWidget(self.tab_widget)
+        
+        # Loading indicator at bottom (always visible)
         self.loading_bar = QProgressBar()
-        self.loading_bar.setRange(0, 0)  # Indeterminate progress
-        self.loading_bar.setVisible(False)
+        self.loading_bar.setMaximumHeight(8)
+        self.loading_bar.setRange(0, 100)  # Normal range when not loading
+        self.loading_bar.setValue(0)  # Empty when not loading
+        self.loading_bar.setTextVisible(False)  # Hide percentage text
         layout.addWidget(self.loading_bar)
-        
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
-        self.content_widget = QWidget()
-        self.content_layout = QVBoxLayout(self.content_widget)
-        self.content_layout.setSpacing(2)
-        self.content_layout.setContentsMargins(4, 4, 4, 4)
-        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.scroll_area.setWidget(self.content_widget)
-        
-        layout.addWidget(self.scroll_area)
         
         self.setCentralWidget(main_widget)
         
@@ -83,20 +104,34 @@ class MainWindow(QMainWindow):
         self.move(screen.width() - self.width() - 20, screen.height() - self.height() - 20)
     
     def show_loading_indicator(self):
-        self.loading_bar.setVisible(True)
+        self.loading_bar.setStyleSheet("")  # Reset to default style
+        self.loading_bar.setRange(0, 0)  # Indeterminate (animated)
     
     def hide_loading_indicator(self):
-        self.loading_bar.setVisible(False)
+        self.loading_bar.setStyleSheet("")  # Reset to default style
+        self.loading_bar.setRange(0, 100)  # Normal range
+        self.loading_bar.setValue(0)  # Empty/gray appearance
+    
+    def show_error_indicator(self):
+        self.loading_bar.setStyleSheet("QProgressBar::chunk { background-color: red; }")
+        self.loading_bar.setRange(0, 100)
+        self.loading_bar.setValue(100)  # Full red bar
     
     def show_loading(self):
-        for i in reversed(range(self.content_layout.count())):
-            widget = self.content_layout.itemAt(i).widget()
+        # Clear both tabs
+        for i in reversed(range(self.incomplete_layout.count())):
+            widget = self.incomplete_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        
+        for i in reversed(range(self.completed_layout.count())):
+            widget = self.completed_layout.itemAt(i).widget()
             if widget:
                 widget.setParent(None)
         
         loading = QLabel("Loading...")
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.content_layout.addWidget(loading)
+        self.incomplete_layout.addWidget(loading)
     
     def fetch_tasklists(self):
         if self.tasklist_fetch_worker and self.tasklist_fetch_worker.isRunning():
@@ -178,7 +213,7 @@ class MainWindow(QMainWindow):
         self.refresh_tasks()
     
     def on_create_error(self, error):
-        self.hide_loading_indicator()
+        self.show_error_indicator()
         print(f"Error creating task: {error}")
         QMessageBox.critical(self, "Error", f"Failed to create task: {error}")
         if self.create_worker:
@@ -237,7 +272,7 @@ class MainWindow(QMainWindow):
         self.fetch_worker.start()
     
     def on_fetch_error(self, error):
-        self.hide_loading_indicator()
+        self.show_error_indicator()
         print(f"Error fetching tasks: {error}")
         if self.fetch_worker:
             self.fetch_worker.deleteLater()
@@ -250,36 +285,51 @@ class MainWindow(QMainWindow):
             self.fetch_worker.deleteLater()
             self.fetch_worker = None
         
-        for i in reversed(range(self.content_layout.count())):
-            widget = self.content_layout.itemAt(i).widget()
+        # Clear both tabs
+        for i in reversed(range(self.incomplete_layout.count())):
+            widget = self.incomplete_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        
+        for i in reversed(range(self.completed_layout.count())):
+            widget = self.completed_layout.itemAt(i).widget()
             if widget:
                 widget.setParent(None)
         
         if not tasks:
             no_tasks = QLabel("No tasks")
             no_tasks.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.content_layout.addWidget(no_tasks)
+            self.incomplete_layout.addWidget(no_tasks)
         else:
             # Separate incomplete and completed tasks
             incomplete_tasks = [t for t in tasks if t["status"] != "completed"]
             completed_tasks = [t for t in tasks if t["status"] == "completed"]
             
-            # Add incomplete tasks
-            for task in incomplete_tasks:
-                task_item = TaskItem(task, self.credentials, self.refresh_tasks)
-                task_item.clicked.connect(self.show_edit_dialog)
-                self.content_layout.addWidget(task_item)
+            # Add incomplete tasks to first tab
+            if not incomplete_tasks:
+                no_incomplete = QLabel("No active tasks")
+                no_incomplete.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.incomplete_layout.addWidget(no_incomplete)
+            else:
+                for task in incomplete_tasks:
+                    task_item = TaskItem(task, self.credentials, self.refresh_tasks)
+                    task_item.clicked.connect(self.show_edit_dialog)
+                    self.incomplete_layout.addWidget(task_item)
             
-            # Add completed tasks accordion if there are any
-            if completed_tasks:
-                completed_section = CollapsibleSection(f"Completed ({len(completed_tasks)})")
-                
+            # Add completed tasks to second tab
+            if not completed_tasks:
+                no_completed = QLabel("No completed tasks")
+                no_completed.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.completed_layout.addWidget(no_completed)
+            else:
                 for task in completed_tasks:
                     task_item = TaskItem(task, self.credentials, self.refresh_tasks)
                     task_item.clicked.connect(self.show_edit_dialog)
-                    completed_section.add_widget(task_item)
-                
-                self.content_layout.addWidget(completed_section)
+                    self.completed_layout.addWidget(task_item)
+            
+            # Update tab titles with counts
+            self.tab_widget.setTabText(0, f"Tasks ({len(incomplete_tasks)})")
+            self.tab_widget.setTabText(1, f"Completed ({len(completed_tasks)})")
     
     def toggle_visibility(self):
         self.hide() if self.isVisible() else self.show()
