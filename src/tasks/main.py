@@ -3,11 +3,11 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVB
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
-from .workers import AuthWorker
-from .services.tasklist_service import TaskListService
-from .controllers.task_controller import TaskController
-from .controllers.tasklist_controller import TaskListController
-from .resources import get_icon_path
+from tasks.workers import AuthWorker
+from tasks.services.tasklist_service import TaskListService
+from tasks.controllers.task_controller import TaskController
+from tasks.controllers.tasklist_controller import TaskListController
+from tasks.resources import get_icon_path
 
 
 class MainWindow(QMainWindow):

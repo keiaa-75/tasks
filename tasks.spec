@@ -7,7 +7,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('src/tasks/resources/tasks.svg', 'resources'),
+        ('src/tasks/resources/tasks.png', 'resources'),
     ],
     hiddenimports=[
         'google.auth.transport.requests',
@@ -48,5 +48,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='src/tasks/resources/tasks.svg',
+    icon='src/tasks/resources/tasks.png',
 )
