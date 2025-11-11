@@ -96,9 +96,14 @@ class TaskItem(QWidget):
 
 
 class TaskDialog(QDialog):
-    def __init__(self, parent=None, title="", due_date=""):
+    def __init__(self, parent=None, title="", due_date="", task_id=None, tasklist_id=None):
         super().__init__(parent)
-        self.setWindowTitle("Edit Task" if title else "New Task")
+        self.is_edit_mode = task_id is not None
+        self.task_id = task_id
+        self.tasklist_id = tasklist_id
+        self.delete_requested = False
+        
+        self.setWindowTitle("Edit Task" if self.is_edit_mode else "New Task")
         self.setModal(True)
         self.setFixedWidth(280)
         
@@ -129,7 +134,22 @@ class TaskDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.validate_and_accept)
         buttons.rejected.connect(self.reject)
+        
+        if self.is_edit_mode:
+            delete_button = buttons.addButton("Delete", QDialogButtonBox.ButtonRole.DestructiveRole)
+            delete_button.clicked.connect(self.confirm_delete)
+        
         layout.addWidget(buttons)
+    
+    def confirm_delete(self):
+        reply = QMessageBox.question(
+            self, "Confirm Delete", 
+            "Are you sure you want to delete this task?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.delete_requested = True
+            self.accept()
     
     def validate_and_accept(self):
         title = self.title_input.text().strip()
@@ -151,3 +171,6 @@ class TaskDialog(QDialog):
         title = self.title_input.text().strip()
         due_date = self.date_input.text().strip() or None
         return title, due_date
+    
+    def is_delete(self):
+        return self.delete_requested

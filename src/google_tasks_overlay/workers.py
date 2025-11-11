@@ -85,3 +85,21 @@ class TaskUpdateWorker(QThread):
             self.finished.emit()
         except Exception as e:
             self.error.emit(str(e))
+
+
+class TaskDeleteWorker(QThread):
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+    
+    def __init__(self, credentials, tasklist_id, task_id):
+        super().__init__()
+        self.credentials = credentials
+        self.tasklist_id = tasklist_id
+        self.task_id = task_id
+    
+    def run(self):
+        try:
+            tasks_api.delete_task(self.credentials, self.tasklist_id, self.task_id)
+            self.finished.emit()
+        except Exception as e:
+            self.error.emit(str(e))

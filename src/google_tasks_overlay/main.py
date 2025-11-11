@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVB
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
-from .workers import AuthWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker
+from .workers import AuthWorker, TaskFetchWorker, TaskCreateWorker, TaskUpdateWorker, TaskDeleteWorker
 from .widgets import TaskItem, TaskDialog
 
 
@@ -14,6 +14,7 @@ class MainWindow(QMainWindow):
         self.fetch_worker = None
         self.create_worker = None
         self.update_worker = None
+        self.delete_worker = None
         
         self.setWindowTitle("Google Tasks")
         self.setFixedSize(300, 400)
@@ -101,10 +102,19 @@ class MainWindow(QMainWindow):
             self.create_task(title, due_date)
     
     def show_edit_dialog(self, task):
-        dialog = TaskDialog(self, title=task["title"], due_date=task["due"])
+        dialog = TaskDialog(
+            self, 
+            title=task["title"], 
+            due_date=task["due"],
+            task_id=task["id"],
+            tasklist_id=task["tasklist_id"]
+        )
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            title, due_date = dialog.get_values()
-            self.update_task(task["tasklist_id"], task["id"], title, due_date)
+            if dialog.is_delete():
+                self.delete_task(task["tasklist_id"], task["id"])
+            else:
+                title, due_date = dialog.get_values()
+                self.update_task(task["tasklist_id"], task["id"], title, due_date)
     
     def create_task(self, title, due_date):
         if self.create_worker and self.create_worker.isRunning():
@@ -137,6 +147,22 @@ class MainWindow(QMainWindow):
     def on_update_error(self, error):
         print(f"Error updating task: {error}")
         QMessageBox.critical(self, "Error", f"Failed to update task: {error}")
+    
+    def delete_task(self, tasklist_id, task_id):
+        if self.delete_worker and self.delete_worker.isRunning():
+            return
+        
+        self.delete_worker = TaskDeleteWorker(self.credentials, tasklist_id, task_id)
+        self.delete_worker.finished.connect(self.on_delete_success)
+        self.delete_worker.error.connect(self.on_delete_error)
+        self.delete_worker.start()
+    
+    def on_delete_success(self):
+        self.refresh_tasks()
+    
+    def on_delete_error(self, error):
+        print(f"Error deleting task: {error}")
+        QMessageBox.critical(self, "Error", f"Failed to delete task: {error}")
     
     def refresh_tasks(self):
         if self.fetch_worker and self.fetch_worker.isRunning():
