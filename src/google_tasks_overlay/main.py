@@ -9,6 +9,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import Qt
 
+from . import auth
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -37,6 +39,17 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    try:
+        credentials = auth.get_credentials()
+        if credentials:
+            print("Authentication successful!")
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred during authentication: {e}")
+        sys.exit(1)
+
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
 

@@ -16,3 +16,7 @@ ENV/
 dist/
 build/
 *.egg-info/
+
+# Credentials
+src/google_tasks_overlay/credentials.json
+/home/keiaa/.local/share/google-tasks-overlay/
