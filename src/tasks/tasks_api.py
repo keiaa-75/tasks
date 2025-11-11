@@ -39,13 +39,11 @@ def fetch_tasks(credentials, tasklist_id=None):
     return all_tasks
 
 def complete_task(credentials, tasklist_id, task_id, title):
-    """Marks a task as completed."""
     service = build("tasks", "v1", credentials=credentials)
     task_body = {"id": task_id, "title": title, "status": "completed"}
     service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
 
 def create_task(credentials, tasklist_id, title, due_date=None):
-    """Creates a new task in the specified task list."""
     service = build("tasks", "v1", credentials=credentials)
     
     task_body = {"title": title}
@@ -55,7 +53,6 @@ def create_task(credentials, tasklist_id, title, due_date=None):
     service.tasks().insert(tasklist=tasklist_id, body=task_body).execute()
 
 def update_task(credentials, tasklist_id, task_id, title, due_date=None):
-    """Updates an existing task."""
     service = build("tasks", "v1", credentials=credentials)
     
     task_body = {"id": task_id, "title": title}
@@ -67,6 +64,5 @@ def update_task(credentials, tasklist_id, task_id, title, due_date=None):
     service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
 
 def delete_task(credentials, tasklist_id, task_id):
-    """Deletes a task."""
     service = build("tasks", "v1", credentials=credentials)
     service.tasks().delete(tasklist=tasklist_id, task=task_id).execute()

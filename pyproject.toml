@@ -1,7 +1,7 @@
 [project]
-name = "google-tasks-overlay"
+name = "tasks"
 version = "0.1.0"
-description = "A simple overlay for Google Tasks on Linux."
+description = "A Google Tasks client for Linux."
 requires-python = ">=3.8"
 dependencies = [
     "pyqt6",
@@ -12,4 +12,4 @@ dependencies = [
 ]
 
 [project.scripts]
-google-tasks-overlay = "google_tasks_overlay.main:main"
+tasks = "tasks.main:main"
