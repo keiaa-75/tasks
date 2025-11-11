@@ -182,7 +182,6 @@ class MainWindow(QMainWindow):
     def on_update_success(self):
         self.update_worker.deleteLater()
         self.update_worker = None
-        self.refresh_tasks()
     
     def on_update_error(self, error):
         print(f"Error updating task: {error}")

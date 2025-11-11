@@ -97,6 +97,9 @@ class TaskItem(QWidget):
     def on_checkbox_changed(self, state):
         if state == Qt.CheckState.Checked.value and self.task["status"] != "completed":
             self.checkbox.setEnabled(False)
+            # Optimistic update
+            self.task["status"] = "completed"
+            self.update_appearance()
             
             self.complete_worker = TaskCompleteWorker(
                 self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"], self.task.get("due")
@@ -106,6 +109,9 @@ class TaskItem(QWidget):
             self.complete_worker.start()
         elif state == Qt.CheckState.Unchecked.value and self.task["status"] == "completed":
             self.checkbox.setEnabled(False)
+            # Optimistic update
+            self.task["status"] = "needsAction"
+            self.update_appearance()
             
             self.uncomplete_worker = TaskUncompleteWorker(
                 self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"], self.task.get("due")
@@ -114,27 +120,39 @@ class TaskItem(QWidget):
             self.uncomplete_worker.error.connect(self.on_uncomplete_error)
             self.uncomplete_worker.start()
     
+    def update_appearance(self):
+        is_completed = self.task["status"] == "completed"
+        font = self.title_label.font()
+        font.setStrikeOut(is_completed)
+        self.title_label.setFont(font)
+    
     def on_complete_success(self):
-        self.refresh_callback()
+        self.checkbox.setEnabled(True)
         if self.complete_worker:
             self.complete_worker.deleteLater()
     
     def on_complete_error(self, error):
         print(f"Error completing task: {error}")
+        # Revert optimistic update
+        self.task["status"] = "needsAction"
         self.checkbox.setChecked(False)
         self.checkbox.setEnabled(True)
+        self.update_appearance()
         if self.complete_worker:
             self.complete_worker.deleteLater()
     
     def on_uncomplete_success(self):
-        self.refresh_callback()
+        self.checkbox.setEnabled(True)
         if self.uncomplete_worker:
             self.uncomplete_worker.deleteLater()
     
     def on_uncomplete_error(self, error):
         print(f"Error uncompleting task: {error}")
+        # Revert optimistic update
+        self.task["status"] = "completed"
         self.checkbox.setChecked(True)
         self.checkbox.setEnabled(True)
+        self.update_appearance()
         if self.uncomplete_worker:
             self.uncomplete_worker.deleteLater()
 
