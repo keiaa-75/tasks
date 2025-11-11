@@ -33,3 +33,21 @@ def complete_task(credentials, tasklist_id, task_id, title):
     service = build("tasks", "v1", credentials=credentials)
     task_body = {"id": task_id, "title": title, "status": "completed"}
     service.tasks().update(tasklist=tasklist_id, task=task_id, body=task_body).execute()
+
+def create_task(credentials, title, due_date=None):
+    """Creates a new task in the default task list."""
+    service = build("tasks", "v1", credentials=credentials)
+    
+    # Get default task list
+    tasklists_result = service.tasklists().list().execute()
+    tasklists = tasklists_result.get("items", [])
+    if not tasklists:
+        raise Exception("No task lists found")
+    
+    tasklist_id = tasklists[0]["id"]
+    
+    task_body = {"title": title}
+    if due_date:
+        task_body["due"] = f"{due_date}T00:00:00.000Z"
+    
+    service.tasks().insert(tasklist=tasklist_id, body=task_body).execute()

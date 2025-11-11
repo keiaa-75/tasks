@@ -1,6 +1,6 @@
 import sys
 from datetime import datetime
-from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QCheckBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QCheckBox, QPushButton, QDialog, QLineEdit, QDialogButtonBox, QMessageBox
 from PyQt6.QtGui import QIcon, QAction, QScreen
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 
@@ -53,6 +53,75 @@ class TaskCompleteWorker(QThread):
             self.finished.emit()
         except Exception as e:
             self.error.emit(str(e))
+
+
+class TaskCreateWorker(QThread):
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+    
+    def __init__(self, credentials, title, due_date):
+        super().__init__()
+        self.credentials = credentials
+        self.title = title
+        self.due_date = due_date
+    
+    def run(self):
+        try:
+            tasks_api.create_task(self.credentials, self.title, self.due_date)
+            self.finished.emit()
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+class CreateTaskDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("New Task")
+        self.setModal(True)
+        self.setFixedWidth(280)
+        
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+        
+        title_label = QLabel("Title:")
+        layout.addWidget(title_label)
+        
+        self.title_input = QLineEdit()
+        self.title_input.setPlaceholderText("Task title")
+        layout.addWidget(self.title_input)
+        
+        date_label = QLabel("Due Date (YYYY-MM-DD):")
+        layout.addWidget(date_label)
+        
+        self.date_input = QLineEdit()
+        self.date_input.setPlaceholderText("Optional")
+        layout.addWidget(self.date_input)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.validate_and_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+    
+    def validate_and_accept(self):
+        title = self.title_input.text().strip()
+        if not title:
+            QMessageBox.warning(self, "Validation Error", "Title is required")
+            return
+        
+        due_date = self.date_input.text().strip()
+        if due_date:
+            try:
+                datetime.strptime(due_date, "%Y-%m-%d")
+            except ValueError:
+                QMessageBox.warning(self, "Validation Error", "Invalid date format. Use YYYY-MM-DD")
+                return
+        
+        self.accept()
+    
+    def get_values(self):
+        title = self.title_input.text().strip()
+        due_date = self.date_input.text().strip() or None
+        return title, due_date
 
 
 class TaskItem(QWidget):
@@ -141,6 +210,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.credentials = credentials
         self.fetch_worker = None
+        self.create_worker = None
         
         self.setWindowTitle("Google Tasks")
         self.setFixedSize(300, 400)
@@ -152,6 +222,7 @@ class MainWindow(QMainWindow):
         
         layout = QVBoxLayout(main_widget)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -165,6 +236,33 @@ class MainWindow(QMainWindow):
         self.scroll_area.setWidget(self.content_widget)
         
         layout.addWidget(self.scroll_area)
+        
+        # Bottom bar
+        bottom_bar = QWidget()
+        bottom_bar.setStyleSheet("background-color: rgba(40, 40, 40, 0.8);")
+        bottom_layout = QHBoxLayout(bottom_bar)
+        bottom_layout.setContentsMargins(8, 8, 8, 8)
+        
+        add_button = QPushButton("+")
+        add_button.setFixedSize(32, 32)
+        add_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(100, 150, 255, 0.8);
+                color: white;
+                border: none;
+                font-size: 20px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: rgba(100, 150, 255, 1.0);
+            }
+        """)
+        add_button.clicked.connect(self.show_create_dialog)
+        bottom_layout.addWidget(add_button)
+        bottom_layout.addStretch()
+        
+        layout.addWidget(bottom_bar)
+        
         self.setCentralWidget(main_widget)
         
         self.refresh_timer = QTimer(self)
@@ -192,6 +290,28 @@ class MainWindow(QMainWindow):
         loading.setStyleSheet("color: rgba(255, 255, 255, 0.6); font-size: 14px; padding: 20px;")
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.content_layout.addWidget(loading)
+    
+    def show_create_dialog(self):
+        dialog = CreateTaskDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            title, due_date = dialog.get_values()
+            self.create_task(title, due_date)
+    
+    def create_task(self, title, due_date):
+        if self.create_worker and self.create_worker.isRunning():
+            return
+        
+        self.create_worker = TaskCreateWorker(self.credentials, title, due_date)
+        self.create_worker.finished.connect(self.on_create_success)
+        self.create_worker.error.connect(self.on_create_error)
+        self.create_worker.start()
+    
+    def on_create_success(self):
+        self.refresh_tasks()
+    
+    def on_create_error(self, error):
+        print(f"Error creating task: {error}")
+        QMessageBox.critical(self, "Error", f"Failed to create task: {error}")
     
     def refresh_tasks(self):
         if self.fetch_worker and self.fetch_worker.isRunning():
