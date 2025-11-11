@@ -1,6 +1,6 @@
 import sys
 from datetime import datetime
-from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QLabel, QSystemTrayIcon, QMenu
+from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QCheckBox
 from PyQt6.QtGui import QIcon, QAction, QScreen
 from PyQt6.QtCore import Qt, QTimer
 
@@ -9,29 +9,71 @@ from . import tasks_api
 
 
 class TaskItem(QWidget):
-    def __init__(self, title, due_date):
+    def __init__(self, task, credentials, refresh_callback):
         super().__init__()
-        layout = QVBoxLayout(self)
+        self.task = task
+        self.credentials = credentials
+        self.refresh_callback = refresh_callback
+        
+        layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(2)
+        layout.setSpacing(8)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
-        title_label = QLabel(title)
-        title_label.setStyleSheet("color: white; font-size: 14px;")
+        self.checkbox = QCheckBox()
+        self.checkbox.setChecked(task["status"] == "completed")
+        self.checkbox.setFixedSize(16, 16)
+        self.checkbox.setStyleSheet("""
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                background-color: rgba(255, 255, 255, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.5);
+            }
+            QCheckBox::indicator:checked {
+                background-color: rgba(100, 150, 255, 0.8);
+                border: 1px solid rgba(100, 150, 255, 1.0);
+            }
+        """)
+        self.checkbox.stateChanged.connect(self.on_checkbox_changed)
+        layout.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
+        
+        content_layout = QVBoxLayout()
+        content_layout.setSpacing(2)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        
+        is_completed = task["status"] == "completed"
+        title_style = "color: rgba(255, 255, 255, 0.5); text-decoration: line-through;" if is_completed else "color: white;"
+        
+        title_label = QLabel(task["title"])
+        title_label.setStyleSheet(f"{title_style} font-size: 14px;")
         title_label.setWordWrap(True)
-        layout.addWidget(title_label)
+        content_layout.addWidget(title_label)
         
-        if due_date and due_date != "No Due Date":
+        if task["due"] and task["due"] != "No Due Date":
             try:
-                dt = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(task["due"].replace('Z', '+00:00'))
                 formatted_date = dt.strftime("%m/%d/%y")
             except:
                 formatted_date = "Invalid date"
             
+            due_style = "color: rgba(255, 255, 255, 0.3);" if is_completed else "color: rgba(255, 255, 255, 0.6);"
             due_label = QLabel(formatted_date)
-            due_label.setStyleSheet("color: rgba(255, 255, 255, 0.6); font-size: 12px;")
-            layout.addWidget(due_label)
+            due_label.setStyleSheet(f"{due_style} font-size: 12px;")
+            content_layout.addWidget(due_label)
+        
+        layout.addLayout(content_layout, 1)
         
         self.setStyleSheet("TaskItem { background-color: rgba(255, 255, 255, 0.1); margin: 2px; }")
+    
+    def on_checkbox_changed(self, state):
+        if state == Qt.CheckState.Checked.value and self.task["status"] != "completed":
+            try:
+                tasks_api.complete_task(self.credentials, self.task["tasklist_id"], self.task["id"], self.task["title"])
+                self.refresh_callback()
+            except Exception as e:
+                print(f"Error completing task: {e}")
+                self.checkbox.setChecked(False)
 
 
 class MainWindow(QMainWindow):
@@ -88,7 +130,9 @@ class MainWindow(QMainWindow):
     
     def update_tasks(self, tasks):
         for i in reversed(range(self.content_layout.count())):
-            self.content_layout.itemAt(i).widget().setParent(None)
+            widget = self.content_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
         
         if not tasks:
             no_tasks = QLabel("No tasks")
@@ -96,8 +140,12 @@ class MainWindow(QMainWindow):
             no_tasks.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.content_layout.addWidget(no_tasks)
         else:
-            for task in tasks:
-                task_item = TaskItem(task["title"], task["due"])
+            # Sort tasks: incomplete first, then completed
+            incomplete_tasks = [t for t in tasks if t["status"] != "completed"]
+            completed_tasks = [t for t in tasks if t["status"] == "completed"]
+            
+            for task in incomplete_tasks + completed_tasks:
+                task_item = TaskItem(task, self.credentials, self.refresh_tasks)
                 self.content_layout.addWidget(task_item)
         
         self.content_layout.addStretch()

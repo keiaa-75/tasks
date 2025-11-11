@@ -6,7 +6,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 # Define the scope for the Google Tasks API
-SCOPES = ["https://www.googleapis.com/auth/tasks.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/tasks"]
 
 
 def get_credentials_path() -> Path:
