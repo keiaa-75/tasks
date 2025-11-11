@@ -7,14 +7,16 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 from . import auth
+from . import tasks_api
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, credentials):
         super().__init__()
+        self.credentials = credentials
         self.setWindowTitle("Google Tasks Overlay")
         self.setGeometry(100, 100, 400, 400)  # Square window
 
@@ -25,11 +27,30 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setStyleSheet("background-color: rgba(0, 0, 0, 0.8);")
 
-        # Add a label to show something is working
-        label = QLabel("Desktop Widget", self)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setStyleSheet("color: white;")
-        self.setCentralWidget(label)
+        # Add a label to show tasks
+        self.tasks_label = QLabel("Loading tasks...", self)
+        self.tasks_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.tasks_label.setStyleSheet("color: white; padding: 10px;")
+        self.setCentralWidget(self.tasks_label)
+
+        # Refresh tasks on a timer
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.timeout.connect(self.refresh_tasks)
+        self.refresh_timer.start(300000)  # 5 minutes
+
+        self.refresh_tasks()
+
+    def refresh_tasks(self):
+        try:
+            tasks = tasks_api.fetch_tasks(self.credentials)
+            if tasks:
+                task_text = "\n".join([task["title"] for task in tasks])
+                self.tasks_label.setText(task_text)
+            else:
+                self.tasks_label.setText("No tasks found.")
+        except Exception as e:
+            print(f"An error occurred while fetching tasks: {e}")
+            self.tasks_label.setText("Error fetching tasks.")
 
     def toggle_visibility(self):
         if self.isVisible():
@@ -53,7 +74,7 @@ def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
 
-    main_window = MainWindow()
+    main_window = MainWindow(credentials)
 
     # System tray icon
     tray_icon = QSystemTrayIcon(QIcon.fromTheme("application-x-executable"), app)
