@@ -1,8 +1,8 @@
 # Tasks
 
-[![Python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg?style=flat&logo=python)](https://www.python.org/)
-[![Qt](https://img.shields.io/badge/Made%20with-Qt-41CD52.svg?style=flat&logo=qt)](https://www.qt.io/)
 [![Google Tasks API](https://img.shields.io/badge/Made%20with-Tasks%20API-4285F4.svg?style=flat&logo=google&logoColor=white)](https://developers.google.com/tasks)
+[![Python](https://img.shields.io/badge/Made%20with-Python-4285F4.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![Qt](https://img.shields.io/badge/Made%20with-Qt-41CD52.svg?style=flat&logo=qt&logoColor=white)](https://www.qt.io/)
 
 A simple, cross-platform, PyQt-based Google Tasks client. Made for learning purposes.
 
