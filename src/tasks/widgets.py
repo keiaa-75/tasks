@@ -12,14 +12,12 @@ class CollapsibleSection(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Header
         self.header = QPushButton(title)
         self.header.setCheckable(True)
         self.header.setChecked(False)
         self.header.clicked.connect(self.toggle_content)
         layout.addWidget(self.header)
         
-        # Content area
         self.content_area = QFrame()
         self.content_area.setVisible(False)
         self.content_layout = QVBoxLayout(self.content_area)
@@ -51,18 +49,16 @@ class TaskItem(QWidget):
         
         layout = QHBoxLayout(self)
         
-        # Add indentation for subtasks
         if is_subtask:
-            layout.setContentsMargins(24, 8, 8, 8)  # Extra left margin for subtasks
+            layout.setContentsMargins(24, 8, 8, 8)
         else:
             layout.setContentsMargins(8, 8, 8, 8)
             
-        layout.setSpacing(8)
+        layout.setSpacing(12)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(task["status"] == "completed")
-        self.checkbox.setFixedSize(16, 16)
         self.checkbox.stateChanged.connect(self.on_checkbox_changed)
         layout.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
         
@@ -96,7 +92,6 @@ class TaskItem(QWidget):
     
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            # Check if click is not on checkbox
             if not self.checkbox.geometry().contains(event.pos()):
                 self.clicked.emit(self.task)
         super().mousePressEvent(event)
@@ -104,7 +99,6 @@ class TaskItem(QWidget):
     def on_checkbox_changed(self, state):
         if state == Qt.CheckState.Checked.value and self.task["status"] != "completed":
             self.checkbox.setEnabled(False)
-            # Optimistic update
             self.task["status"] = "completed"
             self.update_appearance()
             
@@ -114,7 +108,6 @@ class TaskItem(QWidget):
             self.complete_worker.start()
         elif state == Qt.CheckState.Unchecked.value and self.task["status"] == "completed":
             self.checkbox.setEnabled(False)
-            # Optimistic update
             self.task["status"] = "needsAction"
             self.update_appearance()
             

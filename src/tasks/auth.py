@@ -1,4 +1,5 @@
 import os
+import platform
 from pathlib import Path
 
 from google.auth.transport.requests import Request
@@ -13,6 +14,8 @@ def get_credentials_path() -> Path:
     """Get the path to the credentials.json file following platform conventions."""
     if os.name == 'nt':
         config_dir = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "tasks"
+    elif platform.system() == 'Darwin':
+        config_dir = Path.home() / "Library" / "Application Support" / "tasks"
     else:
         xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
         if xdg_config_home:
@@ -27,6 +30,8 @@ def get_credentials_path() -> Path:
 def get_token_path() -> Path:
     if os.name == 'nt':
         data_home = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    elif platform.system() == 'Darwin':
+        data_home = Path.home() / "Library" / "Application Support"
     else:
         xdg_data_home = os.environ.get("XDG_DATA_HOME")
         if xdg_data_home:
@@ -57,12 +62,10 @@ def get_credentials() -> Credentials:
         else:
             credentials_path = get_credentials_path()
             if not credentials_path.exists():
-                config_dir = Path.home() / ".config" / "tasks"
-                config_dir.mkdir(parents=True, exist_ok=True)
                 raise FileNotFoundError(
                     f"Credentials file not found at {credentials_path}.\n"
                     f"Please place your credentials.json file there.\n"
-                    f"Download it from Google Cloud Console (see README for instructions)."
+                    f"Download it from Google Cloud Console (see README)."
                 )
 
             flow = InstalledAppFlow.from_client_secrets_file(

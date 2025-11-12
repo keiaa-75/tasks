@@ -1,5 +1,5 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QPushButton, QComboBox, QProgressBar, QTabWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox, QProgressBar, QTabWidget
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QTimer
 
@@ -30,7 +30,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Google Tasks")
         self.setWindowIcon(QIcon(str(get_icon_path())))
             
-        self.setFixedSize(300, 400)
+        self.resize(300, 400)
+        self.setMinimumSize(300, 400)
+        self.setMaximumSize(600, 800)
         
         main_widget = QWidget()
         layout = QVBoxLayout(main_widget)
@@ -151,8 +153,7 @@ class MainWindow(QMainWindow):
         self.loading_bar.setRange(0, 100)
         self.loading_bar.setValue(100)
     
-    def toggle_visibility(self):
-        self.hide() if self.isVisible() else self.show()
+
 
 
 def main():
@@ -160,13 +161,15 @@ def main():
     app.setApplicationName("Tasks")
     app.setApplicationDisplayName("Google Tasks")
     app.setOrganizationName("tasks")
-    app.setQuitOnLastWindowClosed(False)
+    app.setQuitOnLastWindowClosed(True)
 
     # Show loading window immediately
     loading_window = QMainWindow()
     loading_window.setWindowTitle("Google Tasks")
     loading_window.setWindowIcon(QIcon(str(get_icon_path())))
-    loading_window.setFixedSize(300, 400)
+    loading_window.resize(300, 400)
+    loading_window.setMinimumSize(300, 400)
+    loading_window.setMaximumSize(600, 800)
     
     loading_widget = QWidget()
     loading_layout = QVBoxLayout(loading_widget)
@@ -180,20 +183,12 @@ def main():
     loading_window.show()
 
     main_window = None
-    tray_icon = QSystemTrayIcon(QIcon(str(get_icon_path())), app)
     
     def on_auth_success(credentials):
         nonlocal main_window
         loading_window.close()
         main_window = MainWindow(credentials)
         main_window.show()
-        tray_icon.activated.connect(lambda: main_window.toggle_visibility())
-        
-        menu = QMenu()
-        menu.addAction("Toggle", main_window.toggle_visibility)
-        menu.addAction("Quit", app.quit)
-        tray_icon.setContextMenu(menu)
-        tray_icon.show()
         auth_worker.deleteLater()
     
     def on_auth_error(error):
